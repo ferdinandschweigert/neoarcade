@@ -315,6 +315,17 @@ h2 {
   color: #ffffff;
 }
 
+.random-button {
+  margin-left: auto;
+  background: var(--blue);
+  color: #ffffff;
+  border-color: var(--line);
+  padding: 0.28rem 0.7rem;
+  font-size: 0.74rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
 .game-list {
   margin-top: 0.85rem;
   display: grid;
@@ -534,6 +545,10 @@ button:disabled {
 
   .profile-form-row {
     flex-direction: column;
+  }
+
+  .random-button {
+    margin-left: 0;
   }
 }
 

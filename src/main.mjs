@@ -123,6 +123,7 @@ const gameTitleEl = document.querySelector("#game-title");
 const gameButtons = document.querySelectorAll("[data-game]");
 const gameCards = document.querySelectorAll(".game-card[data-game]");
 const filterButtons = document.querySelectorAll(".filter-button[data-filter]");
+const randomGameButton = document.querySelector("#random-game-button");
 const backButton = document.querySelector("#back-button");
 const pauseButton = document.querySelector("#pause-button");
 const restartButton = document.querySelector("#restart-button");
@@ -209,6 +210,15 @@ for (const filterButton of filterButtons) {
   filterButton.addEventListener("click", () => {
     activeFilter = filterButton.dataset.filter || "all";
     applyGameFilter();
+  });
+}
+
+if (randomGameButton) {
+  randomGameButton.addEventListener("click", () => {
+    const randomGameId = pickRandomVisibleGameId();
+    if (randomGameId) {
+      startGame(randomGameId);
+    }
   });
 }
 
@@ -424,6 +434,31 @@ function applyGameFilter() {
 
     card.classList.toggle("is-hidden", !visible);
   }
+}
+
+function pickRandomVisibleGameId() {
+  const visibleGameIds = [];
+
+  for (const card of gameCards) {
+    if (card.classList.contains("is-hidden")) {
+      continue;
+    }
+
+    const gameId = card.dataset.game;
+    if (gameId && games[gameId]) {
+      visibleGameIds.push(gameId);
+    }
+  }
+
+  const candidateIds =
+    visibleGameIds.length > 0 ? visibleGameIds : Object.keys(games);
+
+  if (candidateIds.length === 0) {
+    return null;
+  }
+
+  const randomIndex = Math.floor(Math.random() * candidateIds.length);
+  return candidateIds[randomIndex];
 }
 
 function initializeProfiles() {

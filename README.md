@@ -113,3 +113,14 @@ Then open http://localhost:8000 once and bookmark it.
 ```bash
 node --test tests/gameLogic.test.mjs
 ```
+
+
+## Deploy to Vercel
+
+1. Open [Vercel](https://vercel.com/new) and import `ferdinandschweigert/neoarcade`.
+2. Framework preset: `Other`.
+3. Build command: leave empty.
+4. Output directory: `.`
+5. Click **Deploy**.
+
+After that, every push to `main` auto-deploys.
