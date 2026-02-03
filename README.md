@@ -1,0 +1,94 @@
+# NeoArcade
+
+Minimal browser arcade with 20 games and category filters.
+
+Scores are saved per game in browser storage and persist across restarts.
+
+## Code structure
+
+- `src/main.mjs`: menu/runtime/filtering/input wiring
+- `src/games/shared.mjs`: shared canvas/math helpers
+- `src/games/*.mjs`: one file per game
+
+## Games
+
+- Snake (wall-wrap + collectible upgrades)
+- Pong
+- Breakout
+- Pac-Maze (Pac-Man style)
+- Blaster
+- Dodger
+- Blockfall (advanced line-clearing puzzle)
+- Tron Trail
+- Sky Runner
+- Orbit Dodge
+- 2048 Grid
+- Tic-Tac-Toe
+- Connect Four
+- Lights Out
+- Memory Match
+- Minefield
+- Frogger Rush
+- Gem Catch
+- Quick Draw
+- Labyrinth Heist (guard pathfinding)
+
+## Run (auto-opens browser)
+
+```bash
+python3 start_arcade.py
+```
+
+The launcher chooses a stable local port automatically (prefers `18765`) and reuses it.
+
+## Desktop icon launch
+
+### macOS
+
+Best option (custom app icon + one click):
+
+1. Run:
+   ```bash
+   ./CreateDesktopArcadeApp.command
+   ```
+2. Double-click `Neo Arcade.app` on Desktop.
+   - It starts in the background (no Terminal window) and opens your browser automatically.
+3. If macOS still shows the old generic icon, remove and recreate:
+   ```bash
+   rm -rf ~/Desktop/Neo\ Arcade.app
+   ./CreateDesktopArcadeApp.command
+   ```
+4. If macOS blocks launch once, allow it and/or run:
+   ```bash
+   xattr -d com.apple.quarantine ~/Desktop/Neo\ Arcade.app
+   ```
+
+Alternative (`.command` launcher):
+
+1. Copy `LaunchArcade.command` to Desktop.
+2. Double-click it.
+3. If you already copied an older launcher, replace it with the latest one:
+   ```bash
+   cp /Users/ferdinandschweigert/Documents/neoarcade/LaunchArcade.command ~/Desktop/
+   chmod +x ~/Desktop/LaunchArcade.command
+   ```
+4. Optional custom icon: open `assets/arcade-mark.svg` (or generated `assets/arcade-mark.png`) in Preview, copy it, then `Get Info` on `~/Desktop/LaunchArcade.command` and paste onto the top-left icon.
+
+### Windows
+
+1. Copy `LaunchArcade.bat` to Desktop.
+2. Double-click it.
+
+## Manual run
+
+```bash
+python3 -m http.server 8000
+```
+
+Then open http://localhost:8000 once and bookmark it.
+
+## Test core Snake logic
+
+```bash
+node --test tests/gameLogic.test.mjs
+```

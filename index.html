@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Arcade</title>
+    <link rel="icon" type="image/svg+xml" href="./assets/arcade-mark.svg" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <section id="arcade-menu" class="panel">
+        <div class="brand-row">
+          <img src="./assets/arcade-mark.svg" class="brand-mark" alt="Arcade logo" />
+          <div>
+            <p class="kicker">Neo Arcade</p>
+            <h1>Play geometric classics</h1>
+          </div>
+        </div>
+        <p class="menu-copy">Select a game to start.</p>
+
+        <div class="promo-strip" aria-hidden="true">
+          <span>20 Playable Games</span>
+          <span>Keyboard + Touch</span>
+          <span>Pure JS</span>
+        </div>
+
+        <div class="filter-bar" aria-label="Game filters">
+          <button class="filter-button is-active" type="button" data-filter="all">All</button>
+          <button class="filter-button" type="button" data-filter="classic">Classic</button>
+          <button class="filter-button" type="button" data-filter="action">Action</button>
+          <button class="filter-button" type="button" data-filter="puzzle">Puzzle</button>
+          <button class="filter-button" type="button" data-filter="strategy">Strategy</button>
+        </div>
+
+        <div class="game-list" role="list">
+          <button class="game-card" type="button" data-game="snake" data-category="classic action" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">🐍</span><span class="game-tag">Classic</span></span>
+            <span class="game-card-title">Snake</span>
+            <span class="game-card-subtitle">Wall-wrap snake with collectible upgrades</span>
+          </button>
+          <button class="game-card" type="button" data-game="pong" data-category="classic" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">🏓</span><span class="game-tag">Classic</span></span>
+            <span class="game-card-title">Pong</span>
+            <span class="game-card-subtitle">Paddle duel vs CPU</span>
+          </button>
+          <button class="game-card" type="button" data-game="breakout" data-category="classic" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">🧱</span><span class="game-tag">Classic</span></span>
+            <span class="game-card-title">Breakout</span>
+            <span class="game-card-subtitle">Clear every brick</span>
+          </button>
+          <button class="game-card" type="button" data-game="pacman" data-category="classic strategy" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">🟡</span><span class="game-tag">Classic</span></span>
+            <span class="game-card-title">Pac-Maze</span>
+            <span class="game-card-subtitle">Pac-Man style dot chase</span>
+          </button>
+          <button class="game-card" type="button" data-game="blaster" data-category="action" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">🚀</span><span class="game-tag">Action</span></span>
+            <span class="game-card-title">Blaster</span>
+            <span class="game-card-subtitle">Arcade shooter with waves</span>
+          </button>
+          <button class="game-card" type="button" data-game="dodger" data-category="action" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">☄️</span><span class="game-tag">Action</span></span>
+            <span class="game-card-title">Dodger</span>
+            <span class="game-card-subtitle">Survive the falling blocks</span>
+          </button>
+          <button class="game-card" type="button" data-game="blockfall" data-category="puzzle strategy" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">🧩</span><span class="game-tag">Puzzle</span></span>
+            <span class="game-card-title">Blockfall</span>
+            <span class="game-card-subtitle">Advanced line-clearing puzzle</span>
+          </button>
+          <button class="game-card" type="button" data-game="tron" data-category="action" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">⚡</span><span class="game-tag">Action</span></span>
+            <span class="game-card-title">Tron Trail</span>
+            <span class="game-card-subtitle">Lightcycle duel vs CPU</span>
+          </button>
+          <button class="game-card" type="button" data-game="runner" data-category="action" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">🏃</span><span class="game-tag">Action</span></span>
+            <span class="game-card-title">Sky Runner</span>
+            <span class="game-card-subtitle">Jump and survive as speed climbs</span>
+          </button>
+          <button class="game-card" type="button" data-game="orbit" data-category="action" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">🪐</span><span class="game-tag">Action</span></span>
+            <span class="game-card-title">Orbit Dodge</span>
+            <span class="game-card-subtitle">Top-down asteroid avoidance</span>
+          </button>
+          <button class="game-card" type="button" data-game="g2048" data-category="puzzle strategy" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">🔢</span><span class="game-tag">Puzzle</span></span>
+            <span class="game-card-title">2048 Grid</span>
+            <span class="game-card-subtitle">Merge tiles to hit 2048</span>
+          </button>
+          <button class="game-card" type="button" data-game="tictactoe" data-category="strategy" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">❌</span><span class="game-tag">Strategy</span></span>
+            <span class="game-card-title">Tic-Tac-Toe</span>
+            <span class="game-card-subtitle">Play vs CPU with grid cursor</span>
+          </button>
+          <button class="game-card" type="button" data-game="connect4" data-category="strategy" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">🟠</span><span class="game-tag">Strategy</span></span>
+            <span class="game-card-title">Connect Four</span>
+            <span class="game-card-subtitle">Drop chips and outsmart CPU</span>
+          </button>
+          <button class="game-card" type="button" data-game="lights" data-category="puzzle" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">💡</span><span class="game-tag">Puzzle</span></span>
+            <span class="game-card-title">Lights Out</span>
+            <span class="game-card-subtitle">Toggle to switch every light off</span>
+          </button>
+          <button class="game-card" type="button" data-game="memory" data-category="puzzle" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">🧠</span><span class="game-tag">Puzzle</span></span>
+            <span class="game-card-title">Memory Match</span>
+            <span class="game-card-subtitle">Find all pairs with minimal moves</span>
+          </button>
+          <button class="game-card" type="button" data-game="mines" data-category="puzzle strategy" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">💣</span><span class="game-tag">Puzzle</span></span>
+            <span class="game-card-title">Minefield</span>
+            <span class="game-card-subtitle">Reveal all safe tiles and flag mines</span>
+          </button>
+          <button class="game-card" type="button" data-game="frogger" data-category="classic action" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">🐸</span><span class="game-tag">Classic</span></span>
+            <span class="game-card-title">Frogger Rush</span>
+            <span class="game-card-subtitle">Cross traffic lanes to score</span>
+          </button>
+          <button class="game-card" type="button" data-game="catcher" data-category="action" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">💎</span><span class="game-tag">Action</span></span>
+            <span class="game-card-title">Gem Catch</span>
+            <span class="game-card-subtitle">Catch gems, avoid bombs</span>
+          </button>
+          <button class="game-card" type="button" data-game="quickdraw" data-category="action" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">🤠</span><span class="game-tag">Action</span></span>
+            <span class="game-card-title">Quick Draw</span>
+            <span class="game-card-subtitle">Reaction duel against the timer</span>
+          </button>
+          <button class="game-card" type="button" data-game="labyrinth" data-category="strategy action" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">🗝️</span><span class="game-tag">Strategy</span></span>
+            <span class="game-card-title">Labyrinth Heist</span>
+            <span class="game-card-subtitle">Collect keys while guard pathfinds</span>
+          </button>
+        </div>
+      </section>
+
+      <section id="game-screen" class="panel hidden">
+        <div class="row">
+          <h2 id="game-title">Game</h2>
+          <button id="back-button" type="button">Back to Arcade</button>
+        </div>
+
+        <p id="score">Score: 0</p>
+        <p id="status">Ready.</p>
+
+        <div class="stage-shell">
+          <canvas id="stage-canvas" class="stage-canvas" width="480" height="480" aria-label="Game stage"></canvas>
+        </div>
+
+        <div class="buttons">
+          <button id="pause-button" type="button">Pause</button>
+          <button id="restart-button" type="button">Restart</button>
+        </div>
+
+        <div id="touch-controls" class="touch-controls" aria-label="Touch controls"></div>
+      </section>
+    </main>
+
+    <script type="module" src="./src/main.mjs"></script>
+  </body>
+</html>
