@@ -1,8 +1,8 @@
 # NeoArcade
 
-Minimal browser arcade with 32 games, category filters, and gamepad support.
+Minimal browser arcade with 42 games, profile-based scores, difficulty settings, category filters, and gamepad support.
 
-Scores are saved per game in browser storage and persist across restarts.
+Scores are saved per profile and per game in browser storage and persist across restarts.
 
 ## Code structure
 
@@ -44,7 +44,16 @@ Scores are saved per game in browser storage and persist across restarts.
 - Stacker Rush
 - Color Flood
 - Backgammon
-
+- Invaders Command
+- Heli Tunnel
+- Sokoban Crates
+- Battleship Grid
+- Mastermind Code
+- Tower of Hanoi
+- Neon Drifter
+- Turret Defense
+- Word Hunt
+- Quantum Flip
 ## Run (auto-opens browser)
 
 ```bash

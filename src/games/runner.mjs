@@ -1,13 +1,4 @@
-import { directionFromKey } from "../gameLogic.mjs";
-import {
-  CANVAS_SIZE,
-  drawDot,
-  drawDiamond,
-  drawGrid,
-  clearCanvas,
-  rectsOverlap,
-  clamp,
-} from "./shared.mjs";
+import { CANVAS_SIZE, clearCanvas, clamp, drawDot, rectsOverlap } from "./shared.mjs";
 
 export function createRunnerGame(ctx) {
   const playerX = 92;
@@ -15,20 +6,56 @@ export function createRunnerGame(ctx) {
   const playerHeight = 44;
   const groundY = CANVAS_SIZE - 84;
 
+  const difficultyPresets = {
+    easy: {
+      gravity: 0.62,
+      jumpVelocity: -11.6,
+      baseSpeed: 4.5,
+      speedGain: 0.9,
+      spawnBase: 64,
+      spawnVariance: 26,
+      scoreRate: 1,
+    },
+    normal: {
+      gravity: 0.68,
+      jumpVelocity: -12.2,
+      baseSpeed: 5,
+      speedGain: 1.05,
+      spawnBase: 54,
+      spawnVariance: 24,
+      scoreRate: 1,
+    },
+    hard: {
+      gravity: 0.74,
+      jumpVelocity: -12.8,
+      baseSpeed: 5.8,
+      speedGain: 1.25,
+      spawnBase: 46,
+      spawnVariance: 20,
+      scoreRate: 1.15,
+    },
+  };
+
   let bestScore = 0;
+  let difficulty = "normal";
   let state = createState();
+
+  function preset() {
+    return difficultyPresets[difficulty] || difficultyPresets.normal;
+  }
 
   function createState() {
     return {
       status: "running",
       score: 0,
       ticks: 0,
-      speed: 5,
+      level: 1,
+      speed: preset().baseSpeed,
       playerY: groundY,
       playerVy: 0,
       jumpQueued: false,
       obstacles: [],
-      spawnCooldown: 52,
+      spawnCooldown: preset().spawnBase,
     };
   }
 
@@ -41,10 +68,10 @@ export function createRunnerGame(ctx) {
   }
 
   function spawnObstacle() {
-    const fly = Math.random() < 0.24;
+    const fly = Math.random() < 0.28;
     const width = 24 + Math.random() * 36;
-    const height = fly ? 22 + Math.random() * 18 : 30 + Math.random() * 42;
-    const y = fly ? groundY - 56 - Math.random() * 38 : groundY + playerHeight - height;
+    const height = fly ? 20 + Math.random() * 18 : 30 + Math.random() * 42;
+    const y = fly ? groundY - 56 - Math.random() * 40 : groundY + playerHeight - height;
 
     state.obstacles.push({
       x: CANVAS_SIZE + 22,
@@ -55,9 +82,20 @@ export function createRunnerGame(ctx) {
     });
   }
 
+  function recomputeLevel() {
+    state.level = Math.max(1, Math.floor(state.score / 40) + 1);
+  }
+
   return {
     title: "Sky Runner",
     controlScheme: "dpad",
+    setDifficulty(nextDifficulty) {
+      if (!difficultyPresets[nextDifficulty]) {
+        difficulty = "normal";
+        return;
+      }
+      difficulty = nextDifficulty;
+    },
     start() {
       state = createState();
     },
@@ -71,16 +109,18 @@ export function createRunnerGame(ctx) {
         return;
       }
 
+      const cfg = preset();
       state.ticks += 1;
-      state.speed = Math.min(12.5, 5 + state.ticks / 900);
+      recomputeLevel();
+      state.speed = Math.min(14.5, cfg.baseSpeed + state.level * cfg.speedGain + state.ticks / 1200);
 
       const onGround = state.playerY >= groundY - 0.5;
       if (state.jumpQueued && onGround) {
-        state.playerVy = -12.2;
+        state.playerVy = cfg.jumpVelocity;
         state.jumpQueued = false;
       }
 
-      state.playerVy += 0.68;
+      state.playerVy += cfg.gravity;
       state.playerY += state.playerVy;
       if (state.playerY >= groundY) {
         state.playerY = groundY;
@@ -90,8 +130,8 @@ export function createRunnerGame(ctx) {
       state.spawnCooldown -= 1;
       if (state.spawnCooldown <= 0) {
         spawnObstacle();
-        state.spawnCooldown =
-          Math.max(22, 54 - Math.floor(state.speed * 2.6)) + Math.floor(Math.random() * 24);
+        const levelReduction = Math.floor(state.level * 1.6);
+        state.spawnCooldown = Math.max(18, cfg.spawnBase - levelReduction) + Math.floor(Math.random() * cfg.spawnVariance);
       }
 
       for (const obstacle of state.obstacles) {
@@ -101,7 +141,7 @@ export function createRunnerGame(ctx) {
       state.obstacles = state.obstacles.filter((obstacle) => obstacle.x + obstacle.width > -24);
 
       if (state.ticks % 6 === 0) {
-        state.score += 1;
+        state.score += cfg.scoreRate;
         if (state.score > bestScore) {
           bestScore = state.score;
         }
@@ -191,10 +231,12 @@ export function createRunnerGame(ctx) {
       return 16;
     },
     getHud() {
+      const scoreLine = `Score: ${Math.floor(state.score)} | Level: ${state.level} | Best: ${Math.floor(bestScore)}`;
+
       if (state.status === "game_over") {
         return {
-          score: `Score: ${state.score} | Best: ${bestScore}`,
-          status: "Wipeout. Press Restart or Enter.",
+          score: scoreLine,
+          status: `Wipeout (${difficulty}). Press Restart or Enter.`,
           pauseLabel: "Pause",
           pauseDisabled: true,
         };
@@ -202,16 +244,16 @@ export function createRunnerGame(ctx) {
 
       if (state.status === "paused") {
         return {
-          score: `Score: ${state.score} | Best: ${bestScore}`,
-          status: "Paused. Press Pause or Space to continue.",
+          score: scoreLine,
+          status: `Paused (${difficulty}). Press Pause or Space to continue.`,
           pauseLabel: "Resume",
           pauseDisabled: false,
         };
       }
 
       return {
-        score: `Score: ${state.score} | Best: ${bestScore}`,
-        status: "Jump with Up/W to avoid obstacles.",
+        score: scoreLine,
+        status: `Jump with Up/W (${difficulty}) and survive each speed level.`,
         pauseLabel: "Pause",
         pauseDisabled: false,
       };

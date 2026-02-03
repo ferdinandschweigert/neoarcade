@@ -9,6 +9,23 @@
   </head>
   <body>
     <main class="app">
+      <section id="profile-gate" class="panel profile-gate hidden">
+        <p class="kicker">Neo Arcade</p>
+        <h1 class="profile-title">Who&#39;s playing?</h1>
+        <p class="profile-copy">Choose a profile to continue.</p>
+
+        <div id="profile-list" class="profile-list" role="list"></div>
+
+        <form id="profile-form" class="profile-form">
+          <label for="profile-name-input">Create profile</label>
+          <div class="profile-form-row">
+            <input id="profile-name-input" name="profile_name" type="text" maxlength="18" placeholder="Name" autocomplete="off" />
+            <button id="add-profile-button" type="submit">Add</button>
+          </div>
+        </form>
+        <p id="profile-message" class="profile-message" aria-live="polite"></p>
+      </section>
+
       <section id="arcade-menu" class="panel">
         <div class="brand-row">
           <img src="./assets/arcade-mark.svg" class="brand-mark" alt="Arcade logo" />
@@ -19,8 +36,21 @@
         </div>
         <p class="menu-copy">Select a game to start.</p>
 
+        <div class="profile-strip">
+          <span>Profile: <strong id="active-profile-name">-</strong></span>
+          <label class="difficulty-control" for="difficulty-select">
+            Difficulty
+            <select id="difficulty-select">
+              <option value="easy">Easy</option>
+              <option value="normal" selected>Normal</option>
+              <option value="hard">Hard</option>
+            </select>
+          </label>
+          <button id="switch-profile-button" type="button">Switch Profile</button>
+        </div>
+
         <div class="promo-strip" aria-hidden="true">
-          <span>32 Playable Games</span>
+          <span>42 Playable Games</span>
           <span>Keyboard + Touch + Gamepad</span>
           <span>Pure JS</span>
         </div>
@@ -193,6 +223,56 @@
             <span class="game-card-head"><span class="game-icon" aria-hidden="true">🎲</span><span class="game-tag">Strategy</span></span>
             <span class="game-card-title">Backgammon</span>
             <span class="game-card-subtitle">Classic race-and-hit board duel vs CPU</span>
+          </button>
+          <button class="game-card" type="button" data-game="invaders" data-category="classic action" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">👾</span><span class="game-tag">Classic</span></span>
+            <span class="game-card-title">Invaders Command</span>
+            <span class="game-card-subtitle">Defend Earth from descending alien waves</span>
+          </button>
+          <button class="game-card" type="button" data-game="heli" data-category="action classic" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">🚁</span><span class="game-tag">Action</span></span>
+            <span class="game-card-title">Heli Tunnel</span>
+            <span class="game-card-subtitle">One-button cave flight with rising speed</span>
+          </button>
+          <button class="game-card" type="button" data-game="sokoban" data-category="puzzle strategy" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">📦</span><span class="game-tag">Puzzle</span></span>
+            <span class="game-card-title">Sokoban Crates</span>
+            <span class="game-card-subtitle">Push crates onto targets across level packs</span>
+          </button>
+          <button class="game-card" type="button" data-game="battleship" data-category="strategy" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">🚢</span><span class="game-tag">Strategy</span></span>
+            <span class="game-card-title">Battleship Grid</span>
+            <span class="game-card-subtitle">Hunt hidden ships before you run out of shots</span>
+          </button>
+          <button class="game-card" type="button" data-game="mastermind" data-category="puzzle strategy" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">🧪</span><span class="game-tag">Puzzle</span></span>
+            <span class="game-card-title">Mastermind Code</span>
+            <span class="game-card-subtitle">Crack color sequences over multi-round runs</span>
+          </button>
+          <button class="game-card" type="button" data-game="hanoi" data-category="puzzle strategy" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">🗼</span><span class="game-tag">Puzzle</span></span>
+            <span class="game-card-title">Tower of Hanoi</span>
+            <span class="game-card-subtitle">Stack disks optimally through escalating rounds</span>
+          </button>
+          <button class="game-card" type="button" data-game="drifter" data-category="action" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">🏎️</span><span class="game-tag">Action</span></span>
+            <span class="game-card-title">Neon Drifter</span>
+            <span class="game-card-subtitle">Curve-tracking racer with traffic hazards</span>
+          </button>
+          <button class="game-card" type="button" data-game="turret" data-category="action strategy" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">🛸</span><span class="game-tag">Action</span></span>
+            <span class="game-card-title">Turret Defense</span>
+            <span class="game-card-subtitle">Rotate and fire to protect your core</span>
+          </button>
+          <button class="game-card" type="button" data-game="wordhunt" data-category="puzzle" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">🔤</span><span class="game-tag">Puzzle</span></span>
+            <span class="game-card-title">Word Hunt</span>
+            <span class="game-card-subtitle">Find target letters before time expires</span>
+          </button>
+          <button class="game-card" type="button" data-game="quantumflip" data-category="puzzle strategy" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">🧬</span><span class="game-tag">Puzzle</span></span>
+            <span class="game-card-title">Quantum Flip</span>
+            <span class="game-card-subtitle">Invert a grid cross to synchronize all cells</span>
           </button>
         </div>
       </section>

@@ -31,6 +31,16 @@ import { createPortalDashGame } from "./games/portaldash.mjs";
 import { createStackerGame } from "./games/stacker.mjs";
 import { createColorFloodGame } from "./games/colorflood.mjs";
 import { createBackgammonGame } from "./games/backgammon.mjs";
+import { createInvadersGame } from "./games/invaders.mjs";
+import { createHeliGame } from "./games/heli.mjs";
+import { createSokobanGame } from "./games/sokoban.mjs";
+import { createBattleshipGame } from "./games/battleship.mjs";
+import { createMastermindGame } from "./games/mastermind.mjs";
+import { createHanoiGame } from "./games/hanoi.mjs";
+import { createDrifterGame } from "./games/drifter.mjs";
+import { createTurretDefenseGame } from "./games/turret.mjs";
+import { createWordHuntGame } from "./games/wordhunt.mjs";
+import { createQuantumFlipGame } from "./games/quantumflip.mjs";
 
 const ACTION_LABELS = {
   UP: "Up",
@@ -53,13 +63,31 @@ const CONTROL_SCHEMES = {
   select_only: [["SELECT"]],
 };
 
-const SCORE_STORAGE_KEY = "neoArcade.savedBest.v1";
+const LEGACY_SCORE_STORAGE_KEY = "neoArcade.savedBest.v1";
+const PROFILE_STORAGE_KEY = "neoArcade.profiles.v1";
+const PROFILE_SCORE_STORAGE_KEY = "neoArcade.savedBestByProfile.v1";
+const ACTIVE_PROFILE_STORAGE_KEY = "neoArcade.activeProfileId.v1";
+const MAX_PROFILES = 8;
+const PROFILE_COLORS = [
+  "#1e61ff",
+  "#e24739",
+  "#47c3a2",
+  "#f4d20b",
+  "#8f5cf7",
+  "#ff8a3d",
+  "#111827",
+  "#14b8a6",
+];
+const DIFFICULTY_STORAGE_KEY = "neoArcade.difficulty.v1";
+const DIFFICULTY_OPTIONS = new Set(["easy", "normal", "hard"]);
 const LOWER_IS_BETTER_GAMES = new Set([
   "lights",
   "memory",
   "quickdraw",
   "sliding",
   "colorflood",
+  "hanoi",
+  "quantumflip",
 ]);
 const BEST_TOKEN_PATTERN = /(Best(?:\s+safe)?\s*:?\s*)(-|\d+(?:\.\d+)?(?:ms)?)/i;
 const GAMEPAD_AXIS_THRESHOLD = 0.54;
@@ -79,6 +107,15 @@ const GAMEPAD_BUTTON_EDGE_MAP = [
   { button: 9, action: "PAUSE" },
   { button: 3, action: "RESTART" },
 ];
+
+const profileGateEl = document.querySelector("#profile-gate");
+const profileListEl = document.querySelector("#profile-list");
+const profileFormEl = document.querySelector("#profile-form");
+const profileNameInputEl = document.querySelector("#profile-name-input");
+const profileMessageEl = document.querySelector("#profile-message");
+const activeProfileNameEl = document.querySelector("#active-profile-name");
+const switchProfileButton = document.querySelector("#switch-profile-button");
+const difficultySelectEl = document.querySelector("#difficulty-select");
 
 const menuEl = document.querySelector("#arcade-menu");
 const gameScreenEl = document.querySelector("#game-screen");
@@ -132,8 +169,17 @@ const games = {
   stacker: createStackerGame(context),
   colorflood: createColorFloodGame(context),
   backgammon: createBackgammonGame(context),
+  invaders: createInvadersGame(context),
+  heli: createHeliGame(context),
+  sokoban: createSokobanGame(context),
+  battleship: createBattleshipGame(context),
+  mastermind: createMastermindGame(context),
+  hanoi: createHanoiGame(context),
+  drifter: createDrifterGame(context),
+  turret: createTurretDefenseGame(context),
+  wordhunt: createWordHuntGame(context),
+  quantumflip: createQuantumFlipGame(context),
 };
-const savedBestByGame = loadSavedBestScores();
 const gameCardBestEls = new Map();
 
 let activeGame = null;
@@ -141,6 +187,12 @@ let activeGameId = null;
 let tickTimer = null;
 let activeFilter = "all";
 let gamepadAnimationFrame = null;
+let profiles = [];
+let scoreStoreByProfile = {};
+let activeProfile = null;
+let activeProfileId = null;
+let activeDifficulty = loadDifficultySetting();
+let savedBestByGame = {};
 const gamepadControlState = new Map();
 const gamepadEdgeState = new Map();
 
@@ -157,6 +209,81 @@ for (const filterButton of filterButtons) {
   filterButton.addEventListener("click", () => {
     activeFilter = filterButton.dataset.filter || "all";
     applyGameFilter();
+  });
+}
+
+if (switchProfileButton) {
+  switchProfileButton.addEventListener("click", () => {
+    showProfileGate("Choose a profile.");
+  });
+}
+
+if (difficultySelectEl instanceof HTMLSelectElement) {
+  difficultySelectEl.value = activeDifficulty;
+  difficultySelectEl.addEventListener("change", () => {
+    setActiveDifficulty(difficultySelectEl.value, true);
+    if (activeGame) {
+      drawFrame();
+    }
+  });
+}
+
+if (profileListEl) {
+  profileListEl.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+
+    const cardEl = target.closest("[data-profile-id]");
+    if (!(cardEl instanceof HTMLButtonElement)) {
+      return;
+    }
+
+    const profileId = cardEl.dataset.profileId;
+    if (!profileId) {
+      return;
+    }
+
+    if (setActiveProfile(profileId, true)) {
+      showMenu();
+      setProfileMessage("");
+    }
+  });
+}
+
+if (profileFormEl) {
+  profileFormEl.addEventListener("submit", (event) => {
+    event.preventDefault();
+
+    const profileName = sanitizeProfileName(profileNameInputEl?.value || "");
+    if (!profileName) {
+      setProfileMessage("Enter a profile name first.", true);
+      return;
+    }
+
+    if (profiles.length >= MAX_PROFILES) {
+      setProfileMessage(`Profile limit reached (${MAX_PROFILES}).`, true);
+      return;
+    }
+
+    const lower = profileName.toLowerCase();
+    if (profiles.some((profile) => profile.name.toLowerCase() === lower)) {
+      setProfileMessage("That profile already exists.", true);
+      return;
+    }
+
+    const nextProfile = createProfile(profileName, profiles.length);
+    profiles.push(nextProfile);
+    persistProfiles();
+    renderProfileCards();
+    setActiveProfile(nextProfile.id, true);
+
+    if (profileNameInputEl) {
+      profileNameInputEl.value = "";
+    }
+
+    showMenu();
   });
 }
 
@@ -229,19 +356,27 @@ document.addEventListener("keyup", (event) => {
   }
 });
 
-showMenu();
 applyGameFilter();
 initializeGameCardBestLabels();
-refreshGameCardBestLabels();
+initializeProfiles();
 startGamepadPolling();
 
 function startGame(gameId) {
+  if (!activeProfileId) {
+    showProfileGate("Choose a profile first.");
+    return;
+  }
+
   stopLoop();
   resetGamepadStates();
 
   activeGameId = gameId;
   activeGame = games[gameId];
+  applyDifficultyToGame(activeGame);
 
+  if (profileGateEl) {
+    profileGateEl.classList.add("hidden");
+  }
   menuEl.classList.add("hidden");
   gameScreenEl.classList.remove("hidden");
 
@@ -264,6 +399,9 @@ function showMenu() {
   activeGame = null;
   activeGameId = null;
 
+  if (profileGateEl) {
+    profileGateEl.classList.add("hidden");
+  }
   menuEl.classList.remove("hidden");
   gameScreenEl.classList.add("hidden");
 
@@ -286,6 +424,169 @@ function applyGameFilter() {
 
     card.classList.toggle("is-hidden", !visible);
   }
+}
+
+function initializeProfiles() {
+  profiles = loadProfiles();
+
+  if (profiles.length === 0) {
+    profiles = [createProfile("Player 1", 0)];
+    persistProfiles();
+  }
+
+  scoreStoreByProfile = loadScoreStoreByProfile();
+  migrateLegacyScores(profiles[0].id);
+
+  const preferredProfileId = loadActiveProfileId();
+  const hasPreferredProfile = profiles.some(
+    (profile) => profile.id === preferredProfileId,
+  );
+
+  const initialProfile = hasPreferredProfile
+    ? profiles.find((profile) => profile.id === preferredProfileId)
+    : profiles[0];
+
+  if (!initialProfile) {
+    showProfileGate("Create or choose a profile.");
+    return;
+  }
+
+  setActiveProfile(initialProfile.id, true);
+  renderProfileCards();
+
+  if (hasPreferredProfile) {
+    showMenu();
+    setProfileMessage("");
+    return;
+  }
+
+  showProfileGate("Choose your profile to start.");
+}
+
+function createProfile(name, index) {
+  return {
+    id: `profile-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+    name,
+    color: PROFILE_COLORS[index % PROFILE_COLORS.length],
+  };
+}
+
+function sanitizeProfileName(rawName) {
+  return String(rawName).trim().replace(/\s+/g, " ").slice(0, 18);
+}
+
+function renderProfileCards() {
+  if (!profileListEl) {
+    return;
+  }
+
+  profileListEl.innerHTML = "";
+
+  for (const profile of profiles) {
+    const buttonEl = document.createElement("button");
+    buttonEl.type = "button";
+    buttonEl.className = "profile-card";
+    buttonEl.dataset.profileId = profile.id;
+    buttonEl.setAttribute("role", "listitem");
+
+    if (profile.id === activeProfileId) {
+      buttonEl.classList.add("is-active");
+    }
+
+    const avatarEl = document.createElement("span");
+    avatarEl.className = "profile-avatar";
+    avatarEl.style.setProperty("--profile-color", profile.color);
+    avatarEl.textContent = profile.name.charAt(0).toUpperCase();
+
+    const nameEl = document.createElement("span");
+    nameEl.className = "profile-name";
+    nameEl.textContent = profile.name;
+
+    buttonEl.appendChild(avatarEl);
+    buttonEl.appendChild(nameEl);
+    profileListEl.appendChild(buttonEl);
+  }
+}
+
+function setActiveProfile(profileId, persist) {
+  const profile = profiles.find((item) => item.id === profileId);
+  if (!profile) {
+    return false;
+  }
+
+  activeProfile = profile;
+  activeProfileId = profile.id;
+  savedBestByGame = loadScoresForProfile(activeProfileId);
+
+  if (activeProfileNameEl) {
+    activeProfileNameEl.textContent = activeProfile.name;
+  }
+
+  if (persist) {
+    persistActiveProfileId();
+  }
+
+  refreshGameCardBestLabels();
+  renderProfileCards();
+  return true;
+}
+
+function showProfileGate(message = "Choose a profile.") {
+  stopLoop();
+  resetGamepadStates();
+
+  if (activeGame) {
+    activeGame.stop();
+  }
+
+  activeGame = null;
+  activeGameId = null;
+
+  if (profileGateEl) {
+    profileGateEl.classList.remove("hidden");
+  }
+  menuEl.classList.add("hidden");
+  gameScreenEl.classList.add("hidden");
+
+  clearCanvas(context);
+  renderProfileCards();
+  setProfileMessage(message);
+}
+
+function setProfileMessage(message, isError = false) {
+  if (!profileMessageEl) {
+    return;
+  }
+
+  profileMessageEl.textContent = message;
+  profileMessageEl.classList.toggle("is-error", isError);
+}
+
+function setActiveDifficulty(nextDifficulty, persist) {
+  const normalized = String(nextDifficulty || "").toLowerCase();
+  activeDifficulty = DIFFICULTY_OPTIONS.has(normalized)
+    ? normalized
+    : "normal";
+
+  if (difficultySelectEl instanceof HTMLSelectElement) {
+    difficultySelectEl.value = activeDifficulty;
+  }
+
+  if (persist) {
+    persistDifficultySetting();
+  }
+
+  if (activeGame) {
+    applyDifficultyToGame(activeGame);
+  }
+}
+
+function applyDifficultyToGame(game) {
+  if (!game || typeof game.setDifficulty !== "function") {
+    return;
+  }
+
+  game.setDifficulty(activeDifficulty);
 }
 
 function scheduleTick() {
@@ -354,7 +655,7 @@ function renderTouchControls(schemeName) {
 }
 
 function mergeSavedBestIntoHud(gameId, scoreText) {
-  if (!gameId) {
+  if (!gameId || !activeProfileId) {
     return scoreText;
   }
 
@@ -440,7 +741,7 @@ function pickBetterMetric(gameId, a, b) {
 }
 
 function updateSavedBest(gameId, candidate) {
-  if (!Number.isFinite(candidate)) {
+  if (!activeProfileId || !Number.isFinite(candidate)) {
     return false;
   }
 
@@ -456,9 +757,97 @@ function updateSavedBest(gameId, candidate) {
   return true;
 }
 
-function loadSavedBestScores() {
+function loadDifficultySetting() {
   try {
-    const raw = localStorage.getItem(SCORE_STORAGE_KEY);
+    const raw = localStorage.getItem(DIFFICULTY_STORAGE_KEY);
+    const normalized = String(raw || "").toLowerCase();
+    return DIFFICULTY_OPTIONS.has(normalized) ? normalized : "normal";
+  } catch {
+    return "normal";
+  }
+}
+
+function persistDifficultySetting() {
+  try {
+    localStorage.setItem(DIFFICULTY_STORAGE_KEY, activeDifficulty);
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function loadProfiles() {
+  try {
+    const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    const sanitized = [];
+    for (let index = 0; index < parsed.length; index += 1) {
+      const item = parsed[index];
+      if (!item || typeof item !== "object") {
+        continue;
+      }
+
+      const id = String(item.id || "").trim();
+      const name = sanitizeProfileName(item.name || "");
+      const color = String(item.color || PROFILE_COLORS[index % PROFILE_COLORS.length]).trim();
+
+      if (!id || !name) {
+        continue;
+      }
+
+      sanitized.push({ id, name, color });
+    }
+
+    return sanitized.slice(0, MAX_PROFILES);
+  } catch {
+    return [];
+  }
+}
+
+function persistProfiles() {
+  try {
+    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profiles));
+  } catch {
+    // Ignore storage failures (private mode, quota, blocked storage).
+  }
+}
+
+function loadActiveProfileId() {
+  try {
+    const raw = localStorage.getItem(ACTIVE_PROFILE_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+
+    const profileId = String(raw).trim();
+    return profileId || null;
+  } catch {
+    return null;
+  }
+}
+
+function persistActiveProfileId() {
+  if (!activeProfileId) {
+    return;
+  }
+
+  try {
+    localStorage.setItem(ACTIVE_PROFILE_STORAGE_KEY, activeProfileId);
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function loadScoreStoreByProfile() {
+  try {
+    const raw = localStorage.getItem(PROFILE_SCORE_STORAGE_KEY);
     if (!raw) {
       return {};
     }
@@ -469,23 +858,95 @@ function loadSavedBestScores() {
     }
 
     const sanitized = {};
-    for (const [gameId, metric] of Object.entries(parsed)) {
-      if (Number.isFinite(metric)) {
-        sanitized[gameId] = metric;
-      }
+    for (const [profileId, maybeMap] of Object.entries(parsed)) {
+      sanitized[profileId] = sanitizeScoreMap(maybeMap);
     }
+
     return sanitized;
   } catch {
     return {};
   }
 }
 
-function persistSavedBestScores() {
+function loadLegacySavedBestScores() {
   try {
-    localStorage.setItem(SCORE_STORAGE_KEY, JSON.stringify(savedBestByGame));
+    const raw = localStorage.getItem(LEGACY_SCORE_STORAGE_KEY);
+    if (!raw) {
+      return {};
+    }
+
+    const parsed = JSON.parse(raw);
+    return sanitizeScoreMap(parsed);
+  } catch {
+    return {};
+  }
+}
+
+function sanitizeScoreMap(maybeMap) {
+  if (!maybeMap || typeof maybeMap !== "object") {
+    return {};
+  }
+
+  const sanitized = {};
+  for (const [gameId, metric] of Object.entries(maybeMap)) {
+    if (Number.isFinite(metric)) {
+      sanitized[gameId] = metric;
+    }
+  }
+  return sanitized;
+}
+
+function migrateLegacyScores(defaultProfileId) {
+  if (!defaultProfileId) {
+    return;
+  }
+
+  const existing = scoreStoreByProfile[defaultProfileId];
+  if (existing && Object.keys(existing).length > 0) {
+    return;
+  }
+
+  const legacyScores = loadLegacySavedBestScores();
+  if (Object.keys(legacyScores).length === 0) {
+    return;
+  }
+
+  scoreStoreByProfile[defaultProfileId] = legacyScores;
+  persistScoreStoreByProfile();
+
+  try {
+    localStorage.removeItem(LEGACY_SCORE_STORAGE_KEY);
+  } catch {
+    // Ignore cleanup failures.
+  }
+}
+
+function loadScoresForProfile(profileId) {
+  if (!profileId) {
+    return {};
+  }
+
+  return { ...sanitizeScoreMap(scoreStoreByProfile[profileId]) };
+}
+
+function persistScoreStoreByProfile() {
+  try {
+    localStorage.setItem(
+      PROFILE_SCORE_STORAGE_KEY,
+      JSON.stringify(scoreStoreByProfile),
+    );
   } catch {
     // Ignore storage failures (private mode, quota, blocked storage).
   }
+}
+
+function persistSavedBestScores() {
+  if (!activeProfileId) {
+    return;
+  }
+
+  scoreStoreByProfile[activeProfileId] = { ...savedBestByGame };
+  persistScoreStoreByProfile();
 }
 
 function initializeGameCardBestLabels() {

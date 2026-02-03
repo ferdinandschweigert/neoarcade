@@ -25,8 +25,15 @@ export function createSnakeGame(ctx) {
     food: "#d94d4d",
   };
 
+  const difficultySettings = {
+    easy: { speedScale: 1.12, levelStep: 8 },
+    normal: { speedScale: 1, levelStep: 6 },
+    hard: { speedScale: 0.9, levelStep: 5 },
+  };
+
   let state = createInitialState({ gridSize: 20 });
   let bestScore = 0;
+  let difficulty = "normal";
 
   return {
     title: "Snake",
@@ -132,16 +139,28 @@ export function createSnakeGame(ctx) {
     restart() {
       state = restartGame(state);
     },
+    setDifficulty(nextDifficulty) {
+      if (!difficultySettings[nextDifficulty]) {
+        difficulty = "normal";
+        return;
+      }
+      difficulty = nextDifficulty;
+    },
     getTickMs() {
-      return getSnakeTickMs(state);
+      const baseTick = getSnakeTickMs(state);
+      const level = getSnakeLevel(state.score, difficultySettings[difficulty].levelStep);
+      const levelScale = 1 - Math.min(0.35, (level - 1) * 0.035);
+      const difficultyScale = difficultySettings[difficulty].speedScale;
+      return Math.max(52, Math.round(baseTick * levelScale * difficultyScale));
     },
     getHud() {
       const activeFeatures = getSnakeFeatureLabel(state.activeEffects);
+      const level = getSnakeLevel(state.score, difficultySettings[difficulty].levelStep);
 
       if (state.status === "game_over") {
         return {
-          score: `Score: ${state.score} | Best: ${bestScore}`,
-          status: "Game over. Press Restart or Enter.",
+          score: `Score: ${state.score} | Level: ${level} | Best: ${bestScore}`,
+          status: `Game over (${difficulty}). Press Restart or Enter.`,
           pauseLabel: "Pause",
           pauseDisabled: true,
         };
@@ -149,8 +168,8 @@ export function createSnakeGame(ctx) {
 
       if (state.status === "paused") {
         return {
-          score: `Score: ${state.score} | Best: ${bestScore}`,
-          status: "Paused. Press Pause or Space to continue.",
+          score: `Score: ${state.score} | Level: ${level} | Best: ${bestScore}`,
+          status: `Paused (${difficulty}). Press Pause or Space to continue.`,
           pauseLabel: "Resume",
           pauseDisabled: false,
         };
@@ -161,14 +180,18 @@ export function createSnakeGame(ctx) {
         : "";
 
       return {
-        score: `Score: ${state.score} | Best: ${bestScore}`,
+        score: `Score: ${state.score} | Level: ${level} | Best: ${bestScore}`,
         status:
-          "Use Arrow keys or WASD. Collect food and upgrades." + featureText,
+          `Use Arrow keys or WASD (${difficulty}). Collect food and upgrades.` + featureText,
         pauseLabel: "Pause",
         pauseDisabled: false,
       };
     },
   };
+}
+
+function getSnakeLevel(score, levelStep) {
+  return Math.max(1, Math.floor(score / levelStep) + 1);
 }
 
 function getSnakeFeatureLabel(effects) {
