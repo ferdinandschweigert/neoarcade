@@ -49,6 +49,16 @@
           <button id="switch-profile-button" type="button">Switch Profile</button>
         </div>
 
+        <div class="cloud-strip" aria-label="Cloud sync">
+          <label class="cloud-control" for="cloud-code-input">
+            Cloud ID
+            <input id="cloud-code-input" type="text" maxlength="32" placeholder="e.g. ferdinand-home" autocomplete="off" />
+          </label>
+          <button id="cloud-connect-button" type="button">Link Cloud</button>
+          <button id="cloud-sync-button" type="button">Sync Now</button>
+          <span id="cloud-status" class="cloud-status" aria-live="polite">Local only</span>
+        </div>
+
         <div class="promo-strip" aria-hidden="true">
           <span>42 Playable Games</span>
           <span>Keyboard + Touch + Gamepad</span>

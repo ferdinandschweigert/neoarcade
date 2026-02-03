@@ -80,6 +80,8 @@ const PROFILE_COLORS = [
 ];
 const DIFFICULTY_STORAGE_KEY = "neoArcade.difficulty.v1";
 const DIFFICULTY_OPTIONS = new Set(["easy", "normal", "hard"]);
+const CLOUD_CODE_STORAGE_KEY = "neoArcade.cloudCode.v1";
+const CLOUD_SYNC_DEBOUNCE_MS = 1200;
 const LOWER_IS_BETTER_GAMES = new Set([
   "lights",
   "memory",
@@ -116,6 +118,10 @@ const profileMessageEl = document.querySelector("#profile-message");
 const activeProfileNameEl = document.querySelector("#active-profile-name");
 const switchProfileButton = document.querySelector("#switch-profile-button");
 const difficultySelectEl = document.querySelector("#difficulty-select");
+const cloudCodeInputEl = document.querySelector("#cloud-code-input");
+const cloudConnectButton = document.querySelector("#cloud-connect-button");
+const cloudSyncButton = document.querySelector("#cloud-sync-button");
+const cloudStatusEl = document.querySelector("#cloud-status");
 
 const menuEl = document.querySelector("#arcade-menu");
 const gameScreenEl = document.querySelector("#game-screen");
@@ -194,6 +200,13 @@ let activeProfile = null;
 let activeProfileId = null;
 let activeDifficulty = loadDifficultySetting();
 let savedBestByGame = {};
+let cloudCode = loadCloudCode();
+let cloudSyncEnabled = false;
+let cloudSyncTimer = null;
+let cloudSyncInFlight = false;
+let cloudSyncQueued = false;
+let cloudSyncBusy = false;
+let suppressCloudSync = false;
 const gamepadControlState = new Map();
 const gamepadEdgeState = new Map();
 
@@ -218,6 +231,35 @@ if (randomGameButton) {
     const randomGameId = pickRandomVisibleGameId();
     if (randomGameId) {
       startGame(randomGameId);
+    }
+  });
+}
+
+if (cloudConnectButton) {
+  cloudConnectButton.addEventListener("click", () => {
+    void connectCloudSync();
+  });
+}
+
+if (cloudSyncButton) {
+  cloudSyncButton.addEventListener("click", () => {
+    void syncCloudNow();
+  });
+}
+
+if (cloudCodeInputEl instanceof HTMLInputElement) {
+  cloudCodeInputEl.addEventListener("input", () => {
+    const sanitized = sanitizeCloudCode(cloudCodeInputEl.value);
+    if (cloudCodeInputEl.value !== sanitized) {
+      cloudCodeInputEl.value = sanitized;
+    }
+    updateCloudButtons();
+  });
+
+  cloudCodeInputEl.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      void connectCloudSync();
     }
   });
 }
@@ -369,6 +411,7 @@ document.addEventListener("keyup", (event) => {
 applyGameFilter();
 initializeGameCardBestLabels();
 initializeProfiles();
+initializeCloudSync();
 startGamepadPolling();
 
 function startGame(gameId) {
@@ -459,6 +502,421 @@ function pickRandomVisibleGameId() {
 
   const randomIndex = Math.floor(Math.random() * candidateIds.length);
   return candidateIds[randomIndex];
+}
+
+function initializeCloudSync() {
+  if (cloudCodeInputEl instanceof HTMLInputElement) {
+    cloudCodeInputEl.value = cloudCode || "";
+  }
+
+  if (!cloudCode) {
+    cloudSyncEnabled = false;
+    updateCloudStatus("Local only");
+    updateCloudButtons();
+    return;
+  }
+
+  updateCloudButtons();
+  void connectCloudSync(true);
+}
+
+async function connectCloudSync(silent = false) {
+  const draftCode = sanitizeCloudCode(
+    cloudCodeInputEl instanceof HTMLInputElement
+      ? cloudCodeInputEl.value
+      : cloudCode,
+  );
+
+  if (cloudCodeInputEl instanceof HTMLInputElement) {
+    cloudCodeInputEl.value = draftCode;
+  }
+
+  if (!draftCode) {
+    cloudCode = "";
+    cloudSyncEnabled = false;
+    persistCloudCode();
+    updateCloudStatus("Local only");
+    updateCloudButtons();
+    return;
+  }
+
+  cloudCode = draftCode;
+  persistCloudCode();
+
+  setCloudBusy(true);
+  if (!silent) {
+    updateCloudStatus("Connecting cloud...");
+  }
+
+  try {
+    const snapshot = await fetchCloudSnapshot(cloudCode);
+    cloudSyncEnabled = true;
+
+    if (snapshot) {
+      applyCloudSnapshot(snapshot);
+      updateCloudStatus("Cloud loaded");
+    } else {
+      await pushCloudSnapshot({ announce: false });
+      updateCloudStatus("Cloud linked");
+    }
+  } catch (error) {
+    cloudSyncEnabled = false;
+    updateCloudStatus(describeCloudError(error), true);
+  } finally {
+    setCloudBusy(false);
+  }
+}
+
+async function syncCloudNow() {
+  const draftCode = sanitizeCloudCode(
+    cloudCodeInputEl instanceof HTMLInputElement
+      ? cloudCodeInputEl.value
+      : cloudCode,
+  );
+
+  if (cloudCodeInputEl instanceof HTMLInputElement) {
+    cloudCodeInputEl.value = draftCode;
+  }
+
+  if (!draftCode) {
+    cloudCode = "";
+    cloudSyncEnabled = false;
+    persistCloudCode();
+    updateCloudStatus("Set Cloud ID first.", true);
+    updateCloudButtons();
+    return;
+  }
+
+  cloudCode = draftCode;
+  persistCloudCode();
+
+  if (!cloudSyncEnabled) {
+    await connectCloudSync();
+    return;
+  }
+
+  setCloudBusy(true);
+  updateCloudStatus("Syncing...");
+
+  try {
+    await pushCloudSnapshot({ announce: false });
+    updateCloudStatus("Synced");
+  } catch (error) {
+    updateCloudStatus(describeCloudError(error), true);
+  } finally {
+    setCloudBusy(false);
+  }
+}
+
+function scheduleCloudSync() {
+  if (!cloudSyncEnabled || !cloudCode || suppressCloudSync) {
+    return;
+  }
+
+  if (cloudSyncTimer) {
+    clearTimeout(cloudSyncTimer);
+  }
+
+  cloudSyncTimer = setTimeout(() => {
+    cloudSyncTimer = null;
+    void pushCloudSnapshot({ announce: false });
+  }, CLOUD_SYNC_DEBOUNCE_MS);
+}
+
+async function pushCloudSnapshot({ announce = false } = {}) {
+  if (!cloudSyncEnabled || !cloudCode) {
+    return false;
+  }
+
+  if (cloudSyncInFlight) {
+    cloudSyncQueued = true;
+    return false;
+  }
+
+  cloudSyncInFlight = true;
+  if (announce) {
+    updateCloudStatus("Syncing...");
+  }
+
+  try {
+    const snapshot = buildCloudSnapshot();
+    const response = await fetch("/api/cloud", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        code: cloudCode,
+        snapshot,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`cloud_write_${response.status}`);
+    }
+
+    if (announce) {
+      updateCloudStatus("Synced");
+    }
+  } finally {
+    cloudSyncInFlight = false;
+
+    if (cloudSyncQueued) {
+      cloudSyncQueued = false;
+      void pushCloudSnapshot({ announce: false });
+    }
+  }
+
+  return true;
+}
+
+async function fetchCloudSnapshot(code) {
+  const response = await fetch(`/api/cloud?code=${encodeURIComponent(code)}`);
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw new Error(`cloud_read_${response.status}`);
+  }
+
+  const payload = await response.json();
+  return payload && typeof payload === "object" ? payload.snapshot || null : null;
+}
+
+function buildCloudSnapshot() {
+  return {
+    version: 1,
+    profiles,
+    scoreStoreByProfile,
+    activeProfileId,
+    activeDifficulty,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function applyCloudSnapshot(snapshot) {
+  const sanitized = sanitizeCloudSnapshot(snapshot);
+  if (!sanitized) {
+    return;
+  }
+
+  const remoteProfiles = sanitized.profiles;
+  const remoteScoreStore = sanitized.scoreStoreByProfile;
+
+  const mergedProfiles = mergeProfiles(remoteProfiles, profiles);
+  const mergedScoreStore = mergeScoreStoreByProfile(
+    remoteScoreStore,
+    scoreStoreByProfile,
+  );
+
+  if (mergedProfiles.length === 0) {
+    return;
+  }
+
+  suppressCloudSync = true;
+  try {
+    profiles = mergedProfiles;
+    scoreStoreByProfile = mergedScoreStore;
+
+    persistProfiles();
+    persistScoreStoreByProfile();
+
+    const preferredProfile =
+      mergedProfiles.find((profile) => profile.id === sanitized.activeProfileId) ||
+      mergedProfiles.find((profile) => profile.id === activeProfileId) ||
+      mergedProfiles[0];
+
+    setActiveProfile(preferredProfile.id, true);
+
+    if (sanitized.activeDifficulty) {
+      setActiveDifficulty(sanitized.activeDifficulty, true);
+    }
+  } finally {
+    suppressCloudSync = false;
+  }
+
+  renderProfileCards();
+  refreshGameCardBestLabels();
+  if (activeGame) {
+    drawFrame();
+  }
+}
+
+function sanitizeCloudSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== "object") {
+    return null;
+  }
+
+  const profilesFromCloud = sanitizeProfilesArray(snapshot.profiles);
+  const scoreStoreByProfileFromCloud = sanitizeScoreStoreByProfile(
+    snapshot.scoreStoreByProfile,
+  );
+
+  if (profilesFromCloud.length === 0) {
+    return null;
+  }
+
+  const activeProfileFromCloud =
+    typeof snapshot.activeProfileId === "string"
+      ? String(snapshot.activeProfileId).trim()
+      : "";
+
+  const difficultyFromCloud = String(snapshot.activeDifficulty || "").toLowerCase();
+
+  return {
+    profiles: profilesFromCloud,
+    scoreStoreByProfile: scoreStoreByProfileFromCloud,
+    activeProfileId: activeProfileFromCloud,
+    activeDifficulty: DIFFICULTY_OPTIONS.has(difficultyFromCloud)
+      ? difficultyFromCloud
+      : null,
+  };
+}
+
+function mergeProfiles(primaryProfiles, secondaryProfiles) {
+  const merged = [];
+  const seenIds = new Set();
+  const seenNames = new Set();
+
+  for (const source of [primaryProfiles, secondaryProfiles]) {
+    for (const profile of source) {
+      const id = String(profile.id || "").trim();
+      const name = sanitizeProfileName(profile.name || "");
+      const nameKey = name.toLowerCase();
+
+      if (!id || !name) {
+        continue;
+      }
+
+      if (seenIds.has(id) || seenNames.has(nameKey)) {
+        continue;
+      }
+
+      seenIds.add(id);
+      seenNames.add(nameKey);
+      merged.push({ id, name, color: profile.color || PROFILE_COLORS[merged.length % PROFILE_COLORS.length] });
+
+      if (merged.length >= MAX_PROFILES) {
+        return merged;
+      }
+    }
+  }
+
+  return merged;
+}
+
+function mergeScoreStoreByProfile(primaryStore, secondaryStore) {
+  const result = {};
+  const profileIds = new Set([
+    ...Object.keys(primaryStore || {}),
+    ...Object.keys(secondaryStore || {}),
+  ]);
+
+  for (const profileId of profileIds) {
+    const primaryScores = sanitizeScoreMap(primaryStore?.[profileId]);
+    const secondaryScores = sanitizeScoreMap(secondaryStore?.[profileId]);
+    const mergedScores = {};
+
+    const gameIds = new Set([
+      ...Object.keys(primaryScores),
+      ...Object.keys(secondaryScores),
+    ]);
+
+    for (const gameId of gameIds) {
+      const mergedMetric = pickBetterMetric(
+        gameId,
+        primaryScores[gameId],
+        secondaryScores[gameId],
+      );
+
+      if (Number.isFinite(mergedMetric)) {
+        mergedScores[gameId] = mergedMetric;
+      }
+    }
+
+    if (Object.keys(mergedScores).length > 0) {
+      result[profileId] = mergedScores;
+    }
+  }
+
+  return result;
+}
+
+function sanitizeCloudCode(rawCode) {
+  return String(rawCode || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9_-]/g, "")
+    .slice(0, 32);
+}
+
+function loadCloudCode() {
+  try {
+    const raw = localStorage.getItem(CLOUD_CODE_STORAGE_KEY);
+    return sanitizeCloudCode(raw);
+  } catch {
+    return "";
+  }
+}
+
+function persistCloudCode() {
+  try {
+    if (cloudCode) {
+      localStorage.setItem(CLOUD_CODE_STORAGE_KEY, cloudCode);
+    } else {
+      localStorage.removeItem(CLOUD_CODE_STORAGE_KEY);
+    }
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function setCloudBusy(isBusy) {
+  cloudSyncBusy = Boolean(isBusy);
+  updateCloudButtons();
+}
+
+function updateCloudButtons() {
+  const draftCode = sanitizeCloudCode(
+    cloudCodeInputEl instanceof HTMLInputElement
+      ? cloudCodeInputEl.value
+      : cloudCode,
+  );
+  const hasCode = Boolean(draftCode);
+
+  if (cloudConnectButton instanceof HTMLButtonElement) {
+    cloudConnectButton.disabled = cloudSyncBusy || !hasCode;
+    cloudConnectButton.textContent = cloudSyncEnabled ? "Reconnect" : "Link Cloud";
+  }
+
+  if (cloudSyncButton instanceof HTMLButtonElement) {
+    cloudSyncButton.disabled = cloudSyncBusy || !hasCode;
+  }
+}
+
+function updateCloudStatus(message, isError = false) {
+  if (!cloudStatusEl) {
+    return;
+  }
+
+  cloudStatusEl.textContent = message;
+  cloudStatusEl.classList.toggle("is-error", isError);
+}
+
+function describeCloudError(error) {
+  const code = String(error?.message || "");
+  if (code.includes("404")) {
+    return "Cloud API not found (deploy latest build).";
+  }
+  if (code.includes("401") || code.includes("403")) {
+    return "Cloud auth failed (check Vercel env vars).";
+  }
+  if (code.includes("500") || code.includes("503")) {
+    return "Cloud unavailable right now.";
+  }
+  return "Cloud sync failed. Working locally.";
 }
 
 function initializeProfiles() {
@@ -808,6 +1266,8 @@ function persistDifficultySetting() {
   } catch {
     // Ignore storage failures.
   }
+
+  scheduleCloudSync();
 }
 
 function loadProfiles() {
@@ -818,32 +1278,43 @@ function loadProfiles() {
     }
 
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    const sanitized = [];
-    for (let index = 0; index < parsed.length; index += 1) {
-      const item = parsed[index];
-      if (!item || typeof item !== "object") {
-        continue;
-      }
-
-      const id = String(item.id || "").trim();
-      const name = sanitizeProfileName(item.name || "");
-      const color = String(item.color || PROFILE_COLORS[index % PROFILE_COLORS.length]).trim();
-
-      if (!id || !name) {
-        continue;
-      }
-
-      sanitized.push({ id, name, color });
-    }
-
-    return sanitized.slice(0, MAX_PROFILES);
+    return sanitizeProfilesArray(parsed);
   } catch {
     return [];
   }
+}
+
+function sanitizeProfilesArray(maybeProfiles) {
+  if (!Array.isArray(maybeProfiles)) {
+    return [];
+  }
+
+  const sanitized = [];
+  const seen = new Set();
+
+  for (let index = 0; index < maybeProfiles.length; index += 1) {
+    const item = maybeProfiles[index];
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+
+    const id = String(item.id || "").trim();
+    const name = sanitizeProfileName(item.name || "");
+    const color = String(item.color || PROFILE_COLORS[index % PROFILE_COLORS.length]).trim();
+
+    if (!id || !name || seen.has(id)) {
+      continue;
+    }
+
+    seen.add(id);
+    sanitized.push({ id, name, color });
+
+    if (sanitized.length >= MAX_PROFILES) {
+      break;
+    }
+  }
+
+  return sanitized;
 }
 
 function persistProfiles() {
@@ -852,6 +1323,8 @@ function persistProfiles() {
   } catch {
     // Ignore storage failures (private mode, quota, blocked storage).
   }
+
+  scheduleCloudSync();
 }
 
 function loadActiveProfileId() {
@@ -878,6 +1351,8 @@ function persistActiveProfileId() {
   } catch {
     // Ignore storage failures.
   }
+
+  scheduleCloudSync();
 }
 
 function loadScoreStoreByProfile() {
@@ -888,19 +1363,28 @@ function loadScoreStoreByProfile() {
     }
 
     const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") {
-      return {};
-    }
-
-    const sanitized = {};
-    for (const [profileId, maybeMap] of Object.entries(parsed)) {
-      sanitized[profileId] = sanitizeScoreMap(maybeMap);
-    }
-
-    return sanitized;
+    return sanitizeScoreStoreByProfile(parsed);
   } catch {
     return {};
   }
+}
+
+function sanitizeScoreStoreByProfile(maybeStore) {
+  if (!maybeStore || typeof maybeStore !== "object") {
+    return {};
+  }
+
+  const sanitized = {};
+  for (const [profileId, maybeMap] of Object.entries(maybeStore)) {
+    const cleanProfileId = String(profileId || "").trim();
+    if (!cleanProfileId) {
+      continue;
+    }
+
+    sanitized[cleanProfileId] = sanitizeScoreMap(maybeMap);
+  }
+
+  return sanitized;
 }
 
 function loadLegacySavedBestScores() {
@@ -973,6 +1457,8 @@ function persistScoreStoreByProfile() {
   } catch {
     // Ignore storage failures (private mode, quota, blocked storage).
   }
+
+  scheduleCloudSync();
 }
 
 function persistSavedBestScores() {

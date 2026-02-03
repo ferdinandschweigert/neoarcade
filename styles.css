@@ -225,6 +225,54 @@ body {
   color: var(--ink);
 }
 
+.cloud-strip {
+  margin-top: 0.56rem;
+  display: flex;
+  align-items: center;
+  gap: 0.52rem;
+  flex-wrap: wrap;
+  padding: 0.42rem 0.56rem;
+  border: 2px solid var(--line);
+  border-radius: 0.48rem;
+  background: #ffffff;
+}
+
+.cloud-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cloud-control input {
+  border: 2px solid var(--line);
+  border-radius: 0.38rem;
+  font-family: inherit;
+  font-size: 0.78rem;
+  padding: 0.24rem 0.46rem;
+  min-width: 170px;
+}
+
+.cloud-strip button {
+  padding: 0.3rem 0.58rem;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cloud-status {
+  margin-left: auto;
+  font-size: 0.74rem;
+  color: #2f2f2f;
+}
+
+.cloud-status.is-error {
+  color: #9b1717;
+}
+
 #game-screen {
   max-width: 620px;
   margin-inline: auto;
@@ -545,6 +593,20 @@ button:disabled {
 
   .profile-form-row {
     flex-direction: column;
+  }
+
+  .cloud-control {
+    width: 100%;
+  }
+
+  .cloud-control input {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .cloud-status {
+    margin-left: 0;
+    width: 100%;
   }
 
   .random-button {

@@ -115,6 +115,19 @@ node --test tests/gameLogic.test.mjs
 ```
 
 
+## Cloud profiles (same data on any device)
+
+For remote profile + high-score sync, deploy on Vercel and add Upstash Redis:
+
+1. In Vercel Storage, create a **KV (Upstash Redis)** database.
+2. Add env vars to the project:
+   - `UPSTASH_REDIS_REST_URL`
+   - `UPSTASH_REDIS_REST_TOKEN`
+3. Redeploy.
+4. In NeoArcade, enter a **Cloud ID** (same ID on your other device) and click **Link Cloud**.
+
+Now profiles, active profile, difficulty, and high scores sync across devices.
+
 ## Deploy to Vercel
 
 1. Open [Vercel](https://vercel.com/new) and import `ferdinandschweigert/neoarcade`.
