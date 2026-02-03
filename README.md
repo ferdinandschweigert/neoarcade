@@ -1,6 +1,6 @@
 # NeoArcade
 
-Minimal browser arcade with 20 games and category filters.
+Minimal browser arcade with 32 games, category filters, and gamepad support.
 
 Scores are saved per game in browser storage and persist across restarts.
 
@@ -32,6 +32,18 @@ Scores are saved per game in browser storage and persist across restarts.
 - Gem Catch
 - Quick Draw
 - Labyrinth Heist (guard pathfinding)
+- Roguelite Grid (procedural dungeon run)
+- Asteroids Drift
+- Flappy Neon
+- River Raid
+- Air Hockey
+- Slide Quest
+- Reversi Royale (sophisticated strategy board AI)
+- Bomber Vault (sophisticated maze/combat loop)
+- Portal Dash
+- Stacker Rush
+- Color Flood
+- Backgammon
 
 ## Run (auto-opens browser)
 
