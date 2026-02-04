@@ -225,15 +225,38 @@ body {
   color: var(--ink);
 }
 
-.cloud-strip {
+.cloud-panel {
   margin-top: 0.56rem;
+  border: 2px solid var(--line);
+  border-radius: 0.48rem;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.cloud-panel > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 0.36rem 0.56rem;
+  font-size: 0.73rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.cloud-panel > summary::-webkit-details-marker {
+  display: none;
+}
+
+.cloud-panel[open] > summary {
+  border-bottom: 2px solid var(--line);
+}
+
+.cloud-strip {
   display: flex;
   align-items: center;
   gap: 0.52rem;
   flex-wrap: wrap;
   padding: 0.42rem 0.56rem;
-  border: 2px solid var(--line);
-  border-radius: 0.48rem;
   background: #ffffff;
 }
 
@@ -254,13 +277,6 @@ body {
   font-size: 0.78rem;
   padding: 0.24rem 0.46rem;
   min-width: 170px;
-}
-
-.cloud-strip button {
-  padding: 0.3rem 0.58rem;
-  font-size: 0.74rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
 .cloud-status {

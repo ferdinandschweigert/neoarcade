@@ -124,9 +124,9 @@ For remote profile + high-score sync, deploy on Vercel and add Upstash Redis:
    - `UPSTASH_REDIS_REST_URL`
    - `UPSTASH_REDIS_REST_TOKEN`
 3. Redeploy.
-4. In NeoArcade, enter a **Cloud ID** (same ID on your other device) and click **Link Cloud**.
+4. In NeoArcade, enter a **Cloud ID** (same ID on your other device) once.
 
-Now profiles, active profile, difficulty, and high scores sync across devices.
+After that, sync runs automatically in the background (profiles, active profile, difficulty, and high scores).
 
 ## Deploy to Vercel
 

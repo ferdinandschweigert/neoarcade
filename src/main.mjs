@@ -82,6 +82,8 @@ const DIFFICULTY_STORAGE_KEY = "neoArcade.difficulty.v1";
 const DIFFICULTY_OPTIONS = new Set(["easy", "normal", "hard"]);
 const CLOUD_CODE_STORAGE_KEY = "neoArcade.cloudCode.v1";
 const CLOUD_SYNC_DEBOUNCE_MS = 1200;
+const CLOUD_CONNECT_DEBOUNCE_MS = 650;
+const CLOUD_PULL_INTERVAL_MS = 30000;
 const LOWER_IS_BETTER_GAMES = new Set([
   "lights",
   "memory",
@@ -119,8 +121,6 @@ const activeProfileNameEl = document.querySelector("#active-profile-name");
 const switchProfileButton = document.querySelector("#switch-profile-button");
 const difficultySelectEl = document.querySelector("#difficulty-select");
 const cloudCodeInputEl = document.querySelector("#cloud-code-input");
-const cloudConnectButton = document.querySelector("#cloud-connect-button");
-const cloudSyncButton = document.querySelector("#cloud-sync-button");
 const cloudStatusEl = document.querySelector("#cloud-status");
 
 const menuEl = document.querySelector("#arcade-menu");
@@ -203,9 +203,10 @@ let savedBestByGame = {};
 let cloudCode = loadCloudCode();
 let cloudSyncEnabled = false;
 let cloudSyncTimer = null;
+let cloudConnectTimer = null;
+let cloudPullTimer = null;
 let cloudSyncInFlight = false;
 let cloudSyncQueued = false;
-let cloudSyncBusy = false;
 let suppressCloudSync = false;
 const gamepadControlState = new Map();
 const gamepadEdgeState = new Map();
@@ -235,32 +236,33 @@ if (randomGameButton) {
   });
 }
 
-if (cloudConnectButton) {
-  cloudConnectButton.addEventListener("click", () => {
-    void connectCloudSync();
-  });
-}
-
-if (cloudSyncButton) {
-  cloudSyncButton.addEventListener("click", () => {
-    void syncCloudNow();
-  });
-}
-
 if (cloudCodeInputEl instanceof HTMLInputElement) {
   cloudCodeInputEl.addEventListener("input", () => {
     const sanitized = sanitizeCloudCode(cloudCodeInputEl.value);
     if (cloudCodeInputEl.value !== sanitized) {
       cloudCodeInputEl.value = sanitized;
     }
-    updateCloudButtons();
+
+    cloudCode = sanitized;
+    persistCloudCode();
+
+    if (!cloudCode) {
+      cloudSyncEnabled = false;
+      stopCloudPullLoop();
+      updateCloudStatus("Auto sync off");
+      return;
+    }
+
+    updateCloudStatus("Auto syncing...");
+    scheduleCloudConnect();
   });
 
-  cloudCodeInputEl.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      void connectCloudSync();
+  cloudCodeInputEl.addEventListener("blur", () => {
+    if (!cloudCode) {
+      return;
     }
+
+    void connectCloudSync(true);
   });
 }
 
@@ -511,12 +513,11 @@ function initializeCloudSync() {
 
   if (!cloudCode) {
     cloudSyncEnabled = false;
-    updateCloudStatus("Local only");
-    updateCloudButtons();
+    updateCloudStatus("Auto sync off");
     return;
   }
 
-  updateCloudButtons();
+  updateCloudStatus("Auto syncing...");
   void connectCloudSync(true);
 }
 
@@ -535,17 +536,16 @@ async function connectCloudSync(silent = false) {
     cloudCode = "";
     cloudSyncEnabled = false;
     persistCloudCode();
-    updateCloudStatus("Local only");
-    updateCloudButtons();
+    stopCloudPullLoop();
+    updateCloudStatus("Auto sync off");
     return;
   }
 
   cloudCode = draftCode;
   persistCloudCode();
 
-  setCloudBusy(true);
   if (!silent) {
-    updateCloudStatus("Connecting cloud...");
+    updateCloudStatus("Auto syncing...");
   }
 
   try {
@@ -554,57 +554,72 @@ async function connectCloudSync(silent = false) {
 
     if (snapshot) {
       applyCloudSnapshot(snapshot);
-      updateCloudStatus("Cloud loaded");
     } else {
       await pushCloudSnapshot({ announce: false });
-      updateCloudStatus("Cloud linked");
     }
+
+    startCloudPullLoop();
+    updateCloudStatus("Auto sync on");
   } catch (error) {
     cloudSyncEnabled = false;
+    stopCloudPullLoop();
     updateCloudStatus(describeCloudError(error), true);
-  } finally {
-    setCloudBusy(false);
   }
 }
 
-async function syncCloudNow() {
-  const draftCode = sanitizeCloudCode(
-    cloudCodeInputEl instanceof HTMLInputElement
-      ? cloudCodeInputEl.value
-      : cloudCode,
-  );
-
-  if (cloudCodeInputEl instanceof HTMLInputElement) {
-    cloudCodeInputEl.value = draftCode;
+function scheduleCloudConnect() {
+  if (cloudConnectTimer) {
+    clearTimeout(cloudConnectTimer);
   }
 
-  if (!draftCode) {
-    cloudCode = "";
-    cloudSyncEnabled = false;
-    persistCloudCode();
-    updateCloudStatus("Set Cloud ID first.", true);
-    updateCloudButtons();
+  cloudConnectTimer = setTimeout(() => {
+    cloudConnectTimer = null;
+    void connectCloudSync(true);
+  }, CLOUD_CONNECT_DEBOUNCE_MS);
+}
+
+function startCloudPullLoop() {
+  if (cloudPullTimer) {
     return;
   }
 
-  cloudCode = draftCode;
-  persistCloudCode();
+  cloudPullTimer = setInterval(() => {
+    void pullCloudSnapshot();
+  }, CLOUD_PULL_INTERVAL_MS);
+}
 
-  if (!cloudSyncEnabled) {
-    await connectCloudSync();
+function stopCloudPullLoop() {
+  if (!cloudPullTimer) {
     return;
   }
 
-  setCloudBusy(true);
-  updateCloudStatus("Syncing...");
+  clearInterval(cloudPullTimer);
+  cloudPullTimer = null;
+}
+
+async function pullCloudSnapshot() {
+  if (!cloudSyncEnabled || !cloudCode || cloudSyncInFlight) {
+    return false;
+  }
+
+  cloudSyncInFlight = true;
 
   try {
-    await pushCloudSnapshot({ announce: false });
-    updateCloudStatus("Synced");
+    const snapshot = await fetchCloudSnapshot(cloudCode);
+    if (snapshot) {
+      applyCloudSnapshot(snapshot);
+    }
+    return true;
   } catch (error) {
     updateCloudStatus(describeCloudError(error), true);
+    return false;
   } finally {
-    setCloudBusy(false);
+    cloudSyncInFlight = false;
+
+    if (cloudSyncQueued) {
+      cloudSyncQueued = false;
+      void pushCloudSnapshot({ announce: false });
+    }
   }
 }
 
@@ -870,29 +885,6 @@ function persistCloudCode() {
     }
   } catch {
     // Ignore storage failures.
-  }
-}
-
-function setCloudBusy(isBusy) {
-  cloudSyncBusy = Boolean(isBusy);
-  updateCloudButtons();
-}
-
-function updateCloudButtons() {
-  const draftCode = sanitizeCloudCode(
-    cloudCodeInputEl instanceof HTMLInputElement
-      ? cloudCodeInputEl.value
-      : cloudCode,
-  );
-  const hasCode = Boolean(draftCode);
-
-  if (cloudConnectButton instanceof HTMLButtonElement) {
-    cloudConnectButton.disabled = cloudSyncBusy || !hasCode;
-    cloudConnectButton.textContent = cloudSyncEnabled ? "Reconnect" : "Link Cloud";
-  }
-
-  if (cloudSyncButton instanceof HTMLButtonElement) {
-    cloudSyncButton.disabled = cloudSyncBusy || !hasCode;
   }
 }
 
