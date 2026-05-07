@@ -652,7 +652,7 @@ body.is-touch .touch-row button {
 
 body.is-touch .buttons button {
   flex: 1;
-  min-height: 48px;
+  min-height: 52px;
 }
 
 body.is-touch .game-card:hover {

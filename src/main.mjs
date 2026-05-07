@@ -153,9 +153,7 @@ const isTouchDevice = isCoarsePointerDevice
   || navigator.maxTouchPoints > 0
   || "ontouchstart" in window;
 
-if (document.body) {
-  document.body.classList.toggle("is-touch", isTouchDevice);
-}
+document.body.classList.toggle("is-touch", isTouchDevice);
 
 stageCanvas.width = CANVAS_SIZE;
 stageCanvas.height = CANVAS_SIZE;
