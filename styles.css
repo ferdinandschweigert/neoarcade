@@ -510,6 +510,7 @@ h2 {
   display: block;
   width: 100%;
   aspect-ratio: 1 / 1;
+  touch-action: none;
 }
 
 .buttons {
@@ -636,34 +637,32 @@ button:disabled {
   }
 }
 
-@media (hover: none) and (pointer: coarse) {
-  .touch-controls {
-    display: grid;
-  }
+body.is-touch .touch-controls {
+  display: grid;
+}
 
-  .touch-row button {
-    min-height: 52px;
-    font-size: 1.4rem;
-    padding: 0.3rem 0.4rem;
-    touch-action: none;
-    user-select: none;
-    -webkit-user-select: none;
-  }
+body.is-touch .touch-row button {
+  min-height: 52px;
+  font-size: 1.4rem;
+  padding: 0.3rem 0.4rem;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
 
-  .buttons button {
-    flex: 1;
-    min-height: 44px;
-  }
+body.is-touch .buttons button {
+  flex: 1;
+  min-height: 52px;
+}
 
-  .game-card:hover {
-    transform: none;
-    box-shadow: 4px 4px 0 var(--line);
-  }
+body.is-touch .game-card:hover {
+  transform: none;
+  box-shadow: 4px 4px 0 var(--line);
+}
 
-  button:hover {
-    transform: none;
-    box-shadow: 3px 3px 0 var(--line);
-  }
+body.is-touch button:hover {
+  transform: none;
+  box-shadow: 3px 3px 0 var(--line);
 }
 
 @media (max-width: 480px) {
