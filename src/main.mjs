@@ -122,6 +122,7 @@ const ACTION_ARIA_LABELS = {
 const TOUCH_HOLD_INITIAL_MS = 160;
 const TOUCH_HOLD_REPEAT_MS = 80;
 const SWIPE_MIN_DISTANCE = 24;
+const TOUCH_LONG_PRESS_MS = 320;
 
 const profileGateEl = document.querySelector("#profile-gate");
 const profileListEl = document.querySelector("#profile-list");
@@ -235,6 +236,7 @@ let touchHoldAction = null;
 let swipeTouchStartX = 0;
 let swipeTouchStartY = 0;
 let swipeTouchId = null;
+let swipeTouchStartTime = 0;
 
 for (const gameButton of gameButtons) {
   gameButton.addEventListener("click", () => {
@@ -483,6 +485,7 @@ stageCanvas.addEventListener("touchstart", (event) => {
   swipeTouchStartX = touch.clientX;
   swipeTouchStartY = touch.clientY;
   swipeTouchId = touch.identifier;
+  swipeTouchStartTime = Date.now();
 }, { passive: false });
 
 stageCanvas.addEventListener("touchend", (event) => {
@@ -505,10 +508,11 @@ stageCanvas.addEventListener("touchend", (event) => {
   const dy = touch.clientY - swipeTouchStartY;
   const absDx = Math.abs(dx);
   const absDy = Math.abs(dy);
+  const elapsedMs = Date.now() - swipeTouchStartTime;
 
   let action;
   if (absDx < SWIPE_MIN_DISTANCE && absDy < SWIPE_MIN_DISTANCE) {
-    action = "SELECT";
+    action = elapsedMs >= TOUCH_LONG_PRESS_MS ? "FLAG" : "SELECT";
   } else if (absDx >= absDy) {
     action = dx > 0 ? "RIGHT" : "LEFT";
   } else {
@@ -522,6 +526,7 @@ stageCanvas.addEventListener("touchend", (event) => {
 
 stageCanvas.addEventListener("touchcancel", () => {
   swipeTouchId = null;
+  swipeTouchStartTime = 0;
 });
 
 applyGameFilter();
@@ -550,7 +555,7 @@ function startGame(gameId) {
   gameScreenEl.classList.remove("hidden");
 
   gameTitleEl.textContent = activeGame.title;
-  renderTouchControls(gameId, activeGame.controlScheme);
+  renderTouchControls(activeGame.controlScheme);
 
   activeGame.start();
   drawFrame();
@@ -1228,14 +1233,8 @@ function stopLoop() {
   }
 }
 
-function renderTouchControls(gameId, schemeName) {
-  if (gameId === "snake") {
-    touchControlsEl.innerHTML = "";
-    touchControlsEl.classList.add("is-empty");
-    return;
-  }
-
-  const scheme = CONTROL_SCHEMES[schemeName] || CONTROL_SCHEMES.none;
+function renderTouchControls(_schemeName) {
+  const scheme = CONTROL_SCHEMES.none;
   touchControlsEl.innerHTML = "";
 
   if (scheme.length === 0) {
