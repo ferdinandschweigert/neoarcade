@@ -563,6 +563,7 @@ button:disabled {
 }
 
 .touch-row.cols-1 button {
+  /* Center the single UP button and match the width of each button in the 3-col row below */
   max-width: calc((100% - 2 * 0.45rem) / 3);
   justify-self: center;
 }

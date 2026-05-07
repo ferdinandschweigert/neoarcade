@@ -111,7 +111,14 @@ const GAMEPAD_BUTTON_EDGE_MAP = [
   { button: 9, action: "PAUSE" },
   { button: 3, action: "RESTART" },
 ];
-const SWIPE_MIN_DISTANCE = 32;
+const ACTION_ARIA_LABELS = {
+  UP: "Move up",
+  DOWN: "Move down",
+  LEFT: "Move left",
+  RIGHT: "Move right",
+  SELECT: "Select",
+  FLAG: "Flag",
+};
 const TOUCH_HOLD_INITIAL_MS = 160;
 const TOUCH_HOLD_REPEAT_MS = 80;
 
@@ -1220,7 +1227,7 @@ function renderTouchControls(schemeName) {
       const buttonEl = document.createElement("button");
       buttonEl.type = "button";
       buttonEl.dataset.action = action;
-      buttonEl.setAttribute("aria-label", action.toLowerCase());
+      buttonEl.setAttribute("aria-label", ACTION_ARIA_LABELS[action] || action.toLowerCase());
       buttonEl.textContent = ACTION_LABELS[action] || action;
       rowEl.appendChild(buttonEl);
     }
