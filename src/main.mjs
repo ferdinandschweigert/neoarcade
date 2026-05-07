@@ -550,7 +550,7 @@ function startGame(gameId) {
   gameScreenEl.classList.remove("hidden");
 
   gameTitleEl.textContent = activeGame.title;
-  renderTouchControls(activeGame.controlScheme);
+  renderTouchControls(gameId, activeGame.controlScheme);
 
   activeGame.start();
   drawFrame();
@@ -1228,7 +1228,13 @@ function stopLoop() {
   }
 }
 
-function renderTouchControls(schemeName) {
+function renderTouchControls(gameId, schemeName) {
+  if (gameId === "snake") {
+    touchControlsEl.innerHTML = "";
+    touchControlsEl.classList.add("is-empty");
+    return;
+  }
+
   const scheme = CONTROL_SCHEMES[schemeName] || CONTROL_SCHEMES.none;
   touchControlsEl.innerHTML = "";
 
