@@ -533,7 +533,9 @@ applyGameFilter();
 initializeGameCardBestLabels();
 initializeProfiles();
 initializeCloudSync();
-startGamepadPolling();
+if (!isTouchDevice) {
+  startGamepadPolling();
+}
 
 function startGame(gameId) {
   if (!activeProfileId) {
