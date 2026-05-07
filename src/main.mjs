@@ -475,6 +475,14 @@ document.addEventListener("keyup", (event) => {
   }
 });
 
+document.addEventListener("touchmove", (event) => {
+  if (!activeGame) {
+    return;
+  }
+
+  event.preventDefault();
+}, { passive: false });
+
 stageCanvas.addEventListener("touchstart", (event) => {
   if (!activeGame) {
     return;
