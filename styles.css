@@ -653,7 +653,7 @@ button:disabled {
 
   .buttons button {
     flex: 1;
-    min-height: 44px;
+    min-height: 48px;
   }
 
   .game-card:hover {
@@ -682,7 +682,7 @@ body.is-touch .touch-row button {
 
 body.is-touch .buttons button {
   flex: 1;
-  min-height: 44px;
+  min-height: 48px;
 }
 
 body.is-touch .game-card:hover {
