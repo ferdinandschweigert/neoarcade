@@ -43,12 +43,12 @@ import { createWordHuntGame } from "./games/wordhunt.mjs";
 import { createQuantumFlipGame } from "./games/quantumflip.mjs";
 
 const ACTION_LABELS = {
-  UP: "Up",
-  DOWN: "Down",
-  LEFT: "Left",
-  RIGHT: "Right",
-  SELECT: "Select",
-  FLAG: "Flag",
+  UP: "▲",
+  DOWN: "▼",
+  LEFT: "◀",
+  RIGHT: "▶",
+  SELECT: "✓",
+  FLAG: "⚑",
 };
 
 const CONTROL_SCHEMES = {
@@ -111,6 +111,16 @@ const GAMEPAD_BUTTON_EDGE_MAP = [
   { button: 9, action: "PAUSE" },
   { button: 3, action: "RESTART" },
 ];
+const ACTION_ARIA_LABELS = {
+  UP: "Move up",
+  DOWN: "Move down",
+  LEFT: "Move left",
+  RIGHT: "Move right",
+  SELECT: "Select",
+  FLAG: "Flag",
+};
+const TOUCH_HOLD_INITIAL_MS = 160;
+const TOUCH_HOLD_REPEAT_MS = 80;
 
 const profileGateEl = document.querySelector("#profile-gate");
 const profileListEl = document.querySelector("#profile-list");
@@ -210,6 +220,11 @@ let cloudSyncQueued = false;
 let suppressCloudSync = false;
 const gamepadControlState = new Map();
 const gamepadEdgeState = new Map();
+let touchHoldTimer = null;
+let touchHoldAction = null;
+let swipeTouchStartX = 0;
+let swipeTouchStartY = 0;
+let swipeTouchId = null;
 
 for (const gameButton of gameButtons) {
   gameButton.addEventListener("click", () => {
@@ -363,6 +378,34 @@ restartButton.addEventListener("click", () => {
   drawFrame();
 });
 
+touchControlsEl.addEventListener("touchstart", (event) => {
+  if (!activeGame) {
+    return;
+  }
+
+  const target = event.target;
+  if (!(target instanceof HTMLButtonElement)) {
+    return;
+  }
+
+  const action = target.dataset.action;
+  if (!action) {
+    return;
+  }
+
+  event.preventDefault();
+  startTouchHold(action);
+}, { passive: false });
+
+touchControlsEl.addEventListener("touchend", (event) => {
+  event.preventDefault();
+  stopTouchHold();
+}, { passive: false });
+
+touchControlsEl.addEventListener("touchcancel", () => {
+  stopTouchHold();
+});
+
 touchControlsEl.addEventListener("click", (event) => {
   if (!activeGame) {
     return;
@@ -410,6 +453,57 @@ document.addEventListener("keyup", (event) => {
   }
 });
 
+stageCanvas.addEventListener("touchstart", (event) => {
+  if (!activeGame) {
+    return;
+  }
+
+  event.preventDefault();
+  const touch = event.changedTouches[0];
+  swipeTouchStartX = touch.clientX;
+  swipeTouchStartY = touch.clientY;
+  swipeTouchId = touch.identifier;
+}, { passive: false });
+
+stageCanvas.addEventListener("touchend", (event) => {
+  if (!activeGame) {
+    return;
+  }
+
+  event.preventDefault();
+
+  const touch = Array.from(event.changedTouches).find(
+    (t) => t.identifier === swipeTouchId,
+  );
+  if (!touch) {
+    return;
+  }
+
+  swipeTouchId = null;
+
+  const dx = touch.clientX - swipeTouchStartX;
+  const dy = touch.clientY - swipeTouchStartY;
+  const absDx = Math.abs(dx);
+  const absDy = Math.abs(dy);
+
+  let action;
+  if (absDx < SWIPE_MIN_DISTANCE && absDy < SWIPE_MIN_DISTANCE) {
+    action = "SELECT";
+  } else if (absDx >= absDy) {
+    action = dx > 0 ? "RIGHT" : "LEFT";
+  } else {
+    action = dy > 0 ? "DOWN" : "UP";
+  }
+
+  if (activeGame.onControl(action)) {
+    drawFrame();
+  }
+}, { passive: false });
+
+stageCanvas.addEventListener("touchcancel", () => {
+  swipeTouchId = null;
+});
+
 applyGameFilter();
 initializeGameCardBestLabels();
 initializeProfiles();
@@ -446,6 +540,7 @@ function startGame(gameId) {
 function showMenu() {
   stopLoop();
   resetGamepadStates();
+  stopTouchHold();
 
   if (activeGame) {
     activeGame.stop();
@@ -1019,6 +1114,7 @@ function setActiveProfile(profileId, persist) {
 function showProfileGate(message = "Choose a profile.") {
   stopLoop();
   resetGamepadStates();
+  stopTouchHold();
 
   if (activeGame) {
     activeGame.stop();
@@ -1131,12 +1227,43 @@ function renderTouchControls(schemeName) {
       const buttonEl = document.createElement("button");
       buttonEl.type = "button";
       buttonEl.dataset.action = action;
+      buttonEl.setAttribute("aria-label", ACTION_ARIA_LABELS[action] || action.toLowerCase());
       buttonEl.textContent = ACTION_LABELS[action] || action;
       rowEl.appendChild(buttonEl);
     }
 
     touchControlsEl.appendChild(rowEl);
   }
+}
+
+function startTouchHold(action) {
+  stopTouchHold();
+  touchHoldAction = action;
+
+  if (activeGame && activeGame.onControl(action)) {
+    drawFrame();
+  }
+
+  touchHoldTimer = setTimeout(function repeatHold() {
+    if (!touchHoldAction || !activeGame) {
+      return;
+    }
+
+    if (activeGame.onControl(touchHoldAction)) {
+      drawFrame();
+    }
+
+    touchHoldTimer = setTimeout(repeatHold, TOUCH_HOLD_REPEAT_MS);
+  }, TOUCH_HOLD_INITIAL_MS);
+}
+
+function stopTouchHold() {
+  if (touchHoldTimer) {
+    clearTimeout(touchHoldTimer);
+    touchHoldTimer = null;
+  }
+
+  touchHoldAction = null;
 }
 
 function mergeSavedBestIntoHud(gameId, scoreText) {
