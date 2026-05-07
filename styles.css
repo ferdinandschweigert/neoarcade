@@ -29,6 +29,7 @@ body {
     var(--paper);
   background-size: 26px 26px, 26px 26px, auto;
   overscroll-behavior: none;
+  overflow-x: hidden;
 }
 
 .app {
@@ -668,6 +669,10 @@ body.is-touch button:hover {
 }
 
 @media (max-width: 480px) {
+  body {
+    background: var(--paper);
+  }
+
   .app {
     width: 100vw;
     min-height: 100dvh;
@@ -690,6 +695,7 @@ body.is-touch button:hover {
 
   .row {
     gap: 0.35rem;
+    flex-wrap: wrap;
   }
 
   #game-title {
@@ -704,6 +710,8 @@ body.is-touch button:hover {
 
   .stage-shell {
     margin-top: 0.45rem;
+    width: min(100%, calc(100dvh - 250px));
+    margin-inline: auto;
   }
 
   .buttons {
@@ -722,6 +730,25 @@ body.is-touch button:hover {
 
   .profile-list {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app::before,
+  .app::after {
+    display: none;
+  }
+
+  .game-card,
+  .stage-shell,
+  .brand-mark,
+  button {
+    box-shadow: 2px 2px 0 var(--line);
+    transition: none;
+  }
+
+  .game-card:hover,
+  button:hover {
+    transform: none;
+    box-shadow: 2px 2px 0 var(--line);
   }
 }
 
