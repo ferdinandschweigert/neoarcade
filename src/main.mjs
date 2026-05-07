@@ -121,6 +121,7 @@ const ACTION_ARIA_LABELS = {
 };
 const TOUCH_HOLD_INITIAL_MS = 160;
 const TOUCH_HOLD_REPEAT_MS = 80;
+const SWIPE_MIN_DISTANCE = 24;
 
 const profileGateEl = document.querySelector("#profile-gate");
 const profileListEl = document.querySelector("#profile-list");
@@ -149,7 +150,9 @@ const touchControlsEl = document.querySelector("#touch-controls");
 const stageCanvas = document.querySelector("#stage-canvas");
 
 const isCoarsePointerDevice = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
+const hasNoHover = window.matchMedia?.("(hover: none)")?.matches ?? false;
 const isTouchDevice = isCoarsePointerDevice
+  || hasNoHover
   || navigator.maxTouchPoints > 0
   || "ontouchstart" in window;
 
@@ -385,8 +388,12 @@ restartButton.addEventListener("click", () => {
   drawFrame();
 });
 
-touchControlsEl.addEventListener("touchstart", (event) => {
+touchControlsEl.addEventListener("pointerdown", (event) => {
   if (!activeGame) {
+    return;
+  }
+
+  if (event.pointerType === "mouse") {
     return;
   }
 
@@ -404,12 +411,18 @@ touchControlsEl.addEventListener("touchstart", (event) => {
   startTouchHold(action);
 }, { passive: false });
 
-touchControlsEl.addEventListener("touchend", (event) => {
-  event.preventDefault();
+touchControlsEl.addEventListener("pointerup", (event) => {
+  if (event.pointerType !== "mouse") {
+    event.preventDefault();
+  }
   stopTouchHold();
 }, { passive: false });
 
-touchControlsEl.addEventListener("touchcancel", () => {
+touchControlsEl.addEventListener("pointercancel", () => {
+  stopTouchHold();
+});
+
+touchControlsEl.addEventListener("pointerleave", () => {
   stopTouchHold();
 });
 

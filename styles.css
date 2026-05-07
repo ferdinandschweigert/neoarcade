@@ -28,6 +28,7 @@ body {
     linear-gradient(90deg, rgba(16, 16, 16, 0.06) 1px, transparent 1px),
     var(--paper);
   background-size: 26px 26px, 26px 26px, auto;
+  overscroll-behavior: none;
 }
 
 .app {
@@ -530,6 +531,7 @@ button {
   font-weight: 700;
   box-shadow: 3px 3px 0 var(--line);
   transition: transform 120ms ease, box-shadow 120ms ease;
+  touch-action: manipulation;
 }
 
 button:hover {
@@ -673,7 +675,11 @@ body.is-touch button:hover {
     border-left: none;
     border-right: none;
     box-shadow: none;
-    padding: 0.55rem 0.6rem;
+    padding:
+      max(0.55rem, env(safe-area-inset-top))
+      max(0.6rem, env(safe-area-inset-right))
+      max(0.7rem, env(safe-area-inset-bottom))
+      max(0.6rem, env(safe-area-inset-left));
   }
 
   #score,
@@ -712,5 +718,15 @@ body.is-touch button:hover {
 
   .touch-row {
     gap: 0.35rem;
+  }
+
+  .profile-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .touch-controls {
+    display: grid;
   }
 }
