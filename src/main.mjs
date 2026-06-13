@@ -41,6 +41,8 @@ import { createDrifterGame } from "./games/drifter.mjs";
 import { createTurretDefenseGame } from "./games/turret.mjs";
 import { createWordHuntGame } from "./games/wordhunt.mjs";
 import { createQuantumFlipGame } from "./games/quantumflip.mjs";
+import { createCheckersGame } from "./games/checkers.mjs";
+import { createCircuitSiegeGame } from "./games/circuitsiege.mjs";
 
 const ACTION_LABELS = {
   UP: "▲",
@@ -207,6 +209,8 @@ const games = {
   turret: createTurretDefenseGame(context),
   wordhunt: createWordHuntGame(context),
   quantumflip: createQuantumFlipGame(context),
+  checkers: createCheckersGame(context),
+  circuitsiege: createCircuitSiegeGame(context),
 };
 const gameCardBestEls = new Map();
 
