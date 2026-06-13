@@ -1,6 +1,6 @@
 # NeoArcade
 
-Minimal browser arcade with 42 games, profile-based scores, difficulty settings, category filters, and gamepad support.
+Minimal browser arcade with 44 games, profile-based scores, difficulty settings, category filters, and gamepad support.
 
 Scores are saved per profile and per game in browser storage and persist across restarts.
 
@@ -54,6 +54,8 @@ Scores are saved per profile and per game in browser storage and persist across 
 - Turret Defense
 - Word Hunt
 - Quantum Flip
+- Neon Checkers (forced captures, kings, minimax CPU)
+- Circuit Siege (tower defense with waves and economy)
 ## Run (auto-opens browser)
 
 ```bash
