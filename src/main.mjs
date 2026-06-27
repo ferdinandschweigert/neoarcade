@@ -61,6 +61,8 @@ import {
   savePendingCloudSnapshot,
 } from "./cloudSync.mjs";
 import { createInputManager } from "./input.mjs";
+import { createFeedbackUI } from "./ui/feedback.mjs";
+import { createResponsiveLayout } from "./ui/responsive.mjs";
 import {
   safeStorageGet,
   safeStorageGetJson,
@@ -153,14 +155,10 @@ const statusEl = document.querySelector("#status");
 const touchControlsEl = document.querySelector("#touch-controls");
 const stageCanvas = document.querySelector("#stage-canvas");
 
-const isCoarsePointerDevice = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
-const hasNoHover = window.matchMedia?.("(hover: none)")?.matches ?? false;
-const isTouchDevice = isCoarsePointerDevice
-  || hasNoHover
-  || navigator.maxTouchPoints > 0
-  || "ontouchstart" in window;
-
-document.body.classList.toggle("is-touch", isTouchDevice);
+const responsiveLayout = createResponsiveLayout({
+  container: document.querySelector(".app"),
+});
+const isTouchDevice = responsiveLayout.isTouchDevice;
 
 stageCanvas.width = CANVAS_SIZE;
 stageCanvas.height = CANVAS_SIZE;
@@ -215,6 +213,12 @@ const games = {
 };
 const GAME_COUNT = Object.keys(games).length;
 const gameCardBestEls = new Map();
+
+const { setAppStatus, updateCloudStatus, showCloudToast } = createFeedbackUI({
+  appStatusEl,
+  cloudStatusEl,
+  cloudToastEl,
+});
 
 const inputManager = createInputManager({
   canvas: stageCanvas,
@@ -927,51 +931,6 @@ function persistCloudCode() {
     safeStorageSet(CLOUD_CODE_STORAGE_KEY, cloudCode);
   } else {
     safeStorageRemove(CLOUD_CODE_STORAGE_KEY);
-  }
-}
-
-function updateCloudStatus(message, state = "off") {
-  if (!cloudStatusEl) {
-    return;
-  }
-
-  cloudStatusEl.textContent = message;
-  cloudStatusEl.dataset.state = state;
-  cloudStatusEl.classList.toggle("is-error", state === "error");
-}
-
-function showCloudToast(message) {
-  if (!cloudToastEl) {
-    return;
-  }
-
-  cloudToastEl.textContent = message;
-  cloudToastEl.classList.remove("hidden");
-  setTimeout(() => {
-    cloudToastEl.classList.add("hidden");
-  }, 3000);
-}
-
-let appStatusTimer = null;
-
-function setAppStatus(message, isError = false, autoClearMs = 0) {
-  if (!appStatusEl) {
-    return;
-  }
-
-  appStatusEl.textContent = message;
-  appStatusEl.classList.toggle("is-error", isError);
-
-  if (appStatusTimer) {
-    clearTimeout(appStatusTimer);
-    appStatusTimer = null;
-  }
-
-  if (autoClearMs > 0) {
-    appStatusTimer = setTimeout(() => {
-      appStatusEl.textContent = "";
-      appStatusEl.classList.remove("is-error");
-    }, autoClearMs);
   }
 }
 
