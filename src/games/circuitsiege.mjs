@@ -467,6 +467,16 @@ export function createCircuitSiegeGame(ctx) {
       }
       return false;
     },
+    getControlHint() {
+      return "Tap the grid to place towers. Long-press to cycle tower type.";
+    },
+    getGridLayout() {
+      return { cols: GRID, rows: GRID, offsetX: 0, offsetY: 0, cellSize: CELL };
+    },
+    onTapCell(col, row, meta = {}) {
+      state.cursor = { x: col, y: row };
+      return meta.longPress ? cycleTowerType() : tryPlaceTower();
+    },
     togglePause() {
       if (state.status === "game_over") {
         return;

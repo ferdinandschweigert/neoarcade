@@ -259,6 +259,16 @@ export function createConnect4Game(ctx) {
       }
       return false;
     },
+    getControlHint() {
+      return "Tap a column to drop your disc.";
+    },
+    getGridLayout() {
+      return { cols, rows, offsetX: boardX, offsetY: boardY, cellSize: cell };
+    },
+    onTapCell(col) {
+      state.cursor = col;
+      return playerDrop();
+    },
     togglePause() {
       if (state.status === "game_over") {
         return;

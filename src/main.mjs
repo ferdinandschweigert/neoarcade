@@ -43,32 +43,38 @@ import { createWordHuntGame } from "./games/wordhunt.mjs";
 import { createQuantumFlipGame } from "./games/quantumflip.mjs";
 import { createCheckersGame } from "./games/checkers.mjs";
 import { createCircuitSiegeGame } from "./games/circuitsiege.mjs";
+import {
+  CLOUD_CONNECT_DEBOUNCE_MS,
+  CLOUD_PULL_INTERVAL_MS,
+  CLOUD_SYNC_DEBOUNCE_MS,
+  clearPendingCloudSnapshot,
+  describeCloudError,
+  fetchCloudSnapshot,
+  loadPendingCloudSnapshot,
+  mergeCloudSnapshots,
+  putCloudSnapshot,
+  sanitizeCloudSnapshot,
+  sanitizeCloudCode,
+  sanitizeProfileName,
+  sanitizeProfilesArray,
+  sanitizeScoreStoreByProfile,
+  savePendingCloudSnapshot,
+} from "./cloudSync.mjs";
+import { createInputManager } from "./input.mjs";
+import {
+  safeStorageGet,
+  safeStorageGetJson,
+  safeStorageRemove,
+  safeStorageSet,
+  safeStorageSetJson,
+  setStorageErrorHandler,
+  STORAGE_KEYS,
+} from "./storage.mjs";
 
-const ACTION_LABELS = {
-  UP: "▲",
-  DOWN: "▼",
-  LEFT: "◀",
-  RIGHT: "▶",
-  SELECT: "✓",
-  FLAG: "⚑",
-};
-
-const CONTROL_SCHEMES = {
-  none: [],
-  dpad: [["UP"], ["LEFT", "DOWN", "RIGHT"]],
-  horizontal: [["LEFT", "RIGHT"]],
-  vertical: [["UP", "DOWN"]],
-  hfire: [["UP"], ["LEFT", "RIGHT"]],
-  grid_select: [["UP"], ["LEFT", "DOWN", "RIGHT"], ["SELECT"]],
-  grid_select_flag: [["UP"], ["LEFT", "DOWN", "RIGHT"], ["SELECT", "FLAG"]],
-  horizontal_select: [["LEFT", "RIGHT"], ["SELECT"]],
-  select_only: [["SELECT"]],
-};
-
-const LEGACY_SCORE_STORAGE_KEY = "neoArcade.savedBest.v1";
-const PROFILE_STORAGE_KEY = "neoArcade.profiles.v1";
-const PROFILE_SCORE_STORAGE_KEY = "neoArcade.savedBestByProfile.v1";
-const ACTIVE_PROFILE_STORAGE_KEY = "neoArcade.activeProfileId.v1";
+const LEGACY_SCORE_STORAGE_KEY = STORAGE_KEYS.LEGACY_SCORE;
+const PROFILE_STORAGE_KEY = STORAGE_KEYS.PROFILES;
+const PROFILE_SCORE_STORAGE_KEY = STORAGE_KEYS.PROFILE_SCORES;
+const ACTIVE_PROFILE_STORAGE_KEY = STORAGE_KEYS.ACTIVE_PROFILE;
 const MAX_PROFILES = 8;
 const PROFILE_COLORS = [
   "#1e61ff",
@@ -80,12 +86,20 @@ const PROFILE_COLORS = [
   "#111827",
   "#14b8a6",
 ];
-const DIFFICULTY_STORAGE_KEY = "neoArcade.difficulty.v1";
+const DIFFICULTY_STORAGE_KEY = STORAGE_KEYS.DIFFICULTY;
 const DIFFICULTY_OPTIONS = new Set(["easy", "normal", "hard"]);
-const CLOUD_CODE_STORAGE_KEY = "neoArcade.cloudCode.v1";
-const CLOUD_SYNC_DEBOUNCE_MS = 1200;
-const CLOUD_CONNECT_DEBOUNCE_MS = 650;
-const CLOUD_PULL_INTERVAL_MS = 30000;
+const CLOUD_CODE_STORAGE_KEY = STORAGE_KEYS.CLOUD_CODE;
+const CONTROL_MODE_OPTIONS = new Set(["auto", "both", "buttons", "gestures"]);
+const SWIPE_SENSITIVITY_PRESETS = {
+  normal: 24,
+  sensitive: 16,
+  precise: 32,
+};
+const LONG_PRESS_PRESETS = {
+  normal: 320,
+  fast: 250,
+  slow: 400,
+};
 const LOWER_IS_BETTER_GAMES = new Set([
   "lights",
   "memory",
@@ -96,35 +110,6 @@ const LOWER_IS_BETTER_GAMES = new Set([
   "quantumflip",
 ]);
 const BEST_TOKEN_PATTERN = /(Best(?:\s+safe)?\s*:?\s*)(-|\d+(?:\.\d+)?(?:ms)?)/i;
-const GAMEPAD_AXIS_THRESHOLD = 0.54;
-const GAMEPAD_REPEAT_INITIAL_MS = 180;
-const GAMEPAD_REPEAT_MS = 90;
-const GAMEPAD_CONTROL_ACTIONS = ["UP", "DOWN", "LEFT", "RIGHT", "SELECT", "FLAG"];
-const GAMEPAD_BUTTON_CONTROL_MAP = [
-  { button: 12, action: "UP" },
-  { button: 13, action: "DOWN" },
-  { button: 14, action: "LEFT" },
-  { button: 15, action: "RIGHT" },
-  { button: 0, action: "SELECT" },
-  { button: 1, action: "FLAG" },
-];
-const GAMEPAD_BUTTON_EDGE_MAP = [
-  { button: 8, action: "BACK" },
-  { button: 9, action: "PAUSE" },
-  { button: 3, action: "RESTART" },
-];
-const ACTION_ARIA_LABELS = {
-  UP: "Move up",
-  DOWN: "Move down",
-  LEFT: "Move left",
-  RIGHT: "Move right",
-  SELECT: "Select",
-  FLAG: "Flag",
-};
-const TOUCH_HOLD_INITIAL_MS = 160;
-const TOUCH_HOLD_REPEAT_MS = 80;
-const SWIPE_MIN_DISTANCE = 24;
-const TOUCH_LONG_PRESS_MS = 320;
 
 const profileGateEl = document.querySelector("#profile-gate");
 const profileListEl = document.querySelector("#profile-list");
@@ -136,6 +121,22 @@ const switchProfileButton = document.querySelector("#switch-profile-button");
 const difficultySelectEl = document.querySelector("#difficulty-select");
 const cloudCodeInputEl = document.querySelector("#cloud-code-input");
 const cloudStatusEl = document.querySelector("#cloud-status");
+const cloudPanelEl = document.querySelector("#cloud-panel");
+const cloudToastEl = document.querySelector("#cloud-toast");
+const appStatusEl = document.querySelector("#app-status");
+const gameSearchInputEl = document.querySelector("#game-search-input");
+const gameListEmptyEl = document.querySelector("#game-list-empty");
+const recentGamesEl = document.querySelector("#recent-games");
+const recentGamesListEl = document.querySelector("#recent-games-list");
+const gameCountLabelEl = document.querySelector("#game-count-label");
+const controlModeSelectEl = document.querySelector("#control-mode-select");
+const activeProfileDotEl = document.querySelector("#active-profile-dot");
+const bestHudEl = document.querySelector("#best-hud");
+const controlsHelpButton = document.querySelector("#controls-help-button");
+const controlsOverlayEl = document.querySelector("#controls-overlay");
+const controlsOverlayHintEl = document.querySelector("#controls-overlay-hint");
+const controlsOverlayDismissEl = document.querySelector("#controls-overlay-dismiss");
+const controlsGameHintEl = document.querySelector("#controls-game-hint");
 
 const menuEl = document.querySelector("#arcade-menu");
 const gameScreenEl = document.querySelector("#game-screen");
@@ -212,13 +213,37 @@ const games = {
   checkers: createCheckersGame(context),
   circuitsiege: createCircuitSiegeGame(context),
 };
+const GAME_COUNT = Object.keys(games).length;
 const gameCardBestEls = new Map();
+
+const inputManager = createInputManager({
+  canvas: stageCanvas,
+  touchControlsEl,
+  isTouchDevice,
+  getActiveGame: () => activeGame,
+  getControlMode: () => controlMode,
+  getSwipeMinDistance: () => SWIPE_SENSITIVITY_PRESETS[swipeSensitivity] ?? 24,
+  getLongPressMs: () => LONG_PRESS_PRESETS[longPressPreset] ?? 320,
+  onControlApplied: () => drawFrame(),
+  onBack: () => showMenu(),
+  onPause: () => activeGame?.togglePause?.(),
+  onRestart: () => activeGame?.restart?.(),
+  onGamepadConnected: () => setAppStatus("Gamepad connected.", false, 3000),
+});
+
+setStorageErrorHandler((message) => {
+  setAppStatus(message, true);
+  setProfileMessage(message, true);
+});
+
+if (gameCountLabelEl) {
+  gameCountLabelEl.textContent = `${GAME_COUNT} Playable Games`;
+}
 
 let activeGame = null;
 let activeGameId = null;
 let tickTimer = null;
 let activeFilter = "all";
-let gamepadAnimationFrame = null;
 let profiles = [];
 let scoreStoreByProfile = {};
 let activeProfile = null;
@@ -233,22 +258,167 @@ let cloudPullTimer = null;
 let cloudSyncInFlight = false;
 let cloudSyncQueued = false;
 let suppressCloudSync = false;
-const gamepadControlState = new Map();
-const gamepadEdgeState = new Map();
-let touchHoldTimer = null;
-let touchHoldAction = null;
-let swipeTouchStartX = 0;
-let swipeTouchStartY = 0;
-let swipeTouchId = null;
-let swipeTouchStartTime = 0;
+let loopPausedForVisibility = false;
+let lastFocusedGameCard = null;
+let activeSearchQuery = "";
+let controlMode = loadControlModeSetting();
+let swipeSensitivity = loadSwipeSensitivitySetting();
+let longPressPreset = loadLongPressPresetSetting();
 
 for (const gameButton of gameButtons) {
   gameButton.addEventListener("click", () => {
     const gameId = gameButton.dataset.game;
     if (games[gameId]) {
+      lastFocusedGameCard = gameButton;
       startGame(gameId);
     }
   });
+}
+
+if (gameSearchInputEl instanceof HTMLInputElement) {
+  let searchTimer = null;
+  gameSearchInputEl.addEventListener("input", () => {
+    if (searchTimer) {
+      clearTimeout(searchTimer);
+    }
+    searchTimer = setTimeout(() => {
+      activeSearchQuery = gameSearchInputEl.value.trim().toLowerCase();
+      applyGameFilter();
+    }, 150);
+  });
+}
+
+if (controlModeSelectEl instanceof HTMLSelectElement) {
+  controlModeSelectEl.value = controlMode;
+  controlModeSelectEl.addEventListener("change", () => {
+    const nextMode = String(controlModeSelectEl.value || "auto").toLowerCase();
+    controlMode = CONTROL_MODE_OPTIONS.has(nextMode) ? nextMode : "auto";
+    persistControlModeSetting();
+    if (activeGame) {
+      inputManager.renderTouchControls(activeGame.controlScheme);
+    }
+  });
+}
+
+if (controlsHelpButton) {
+  controlsHelpButton.addEventListener("click", () => {
+    showControlsOverlay(false);
+  });
+}
+
+if (controlsOverlayDismissEl) {
+  controlsOverlayDismissEl.addEventListener("click", () => {
+    hideControlsOverlay(true);
+  });
+}
+
+backButton.addEventListener("click", () => {
+  showMenu();
+});
+
+pauseButton.addEventListener("click", () => {
+  if (!activeGame) {
+    return;
+  }
+
+  activeGame.togglePause();
+  drawFrame();
+});
+
+restartButton.addEventListener("click", () => {
+  if (!activeGame) {
+    return;
+  }
+
+  activeGame.restart();
+  drawFrame();
+});
+
+inputManager.initialize();
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    loopPausedForVisibility = Boolean(activeGame && tickTimer);
+    stopLoop();
+    inputManager.stopGamepadPolling();
+    return;
+  }
+
+  if (activeGame && loopPausedForVisibility) {
+    loopPausedForVisibility = false;
+    drawFrame();
+    scheduleTick();
+  }
+
+  if (!isTouchDevice || getPrimaryGamepadExists()) {
+    inputManager.startGamepadPolling();
+  }
+
+  if (cloudSyncEnabled) {
+    void pullCloudSnapshot();
+    void flushPendingCloudSnapshot();
+  }
+});
+
+window.addEventListener("online", () => {
+  if (cloudCode) {
+    void connectCloudSync(true);
+  }
+});
+
+applyGameFilter();
+initializeGameCardBestLabels();
+initializeProfiles();
+initializeCloudSync();
+renderRecentGames();
+inputManager.startGamepadPolling();
+
+function getPrimaryGamepadExists() {
+  if (typeof navigator.getGamepads !== "function") {
+    return false;
+  }
+
+  const pads = navigator.getGamepads();
+  return Boolean(pads && Array.from(pads).some((pad) => pad && pad.connected));
+}
+
+function startGame(gameId) {
+  if (!activeProfileId) {
+    showProfileGate("Choose a profile first.");
+    return;
+  }
+
+  stopLoop();
+  inputManager.resetGamepadStates();
+
+  activeGameId = gameId;
+  activeGame = games[gameId];
+  applyDifficultyToGame(activeGame);
+  recordRecentGame(gameId);
+
+  if (profileGateEl) {
+    profileGateEl.classList.add("hidden");
+  }
+  menuEl.classList.add("hidden");
+  gameScreenEl.classList.remove("hidden");
+
+  gameTitleEl.textContent = activeGame.title;
+  inputManager.renderTouchControls(activeGame.controlScheme);
+  updateControlsHints();
+
+  activeGame.start();
+  drawFrame();
+  scheduleTick();
+
+  if (controlsGameHintEl) {
+    controlsGameHintEl.textContent = inputManager.getControlHintForGame(activeGame);
+  }
+
+  if (isTouchDevice && !hasSeenControlsHint()) {
+    showControlsOverlay(true);
+  }
+
+  stageCanvas.focus();
 }
 
 for (const filterButton of filterButtons) {
@@ -280,11 +450,11 @@ if (cloudCodeInputEl instanceof HTMLInputElement) {
     if (!cloudCode) {
       cloudSyncEnabled = false;
       stopCloudPullLoop();
-      updateCloudStatus("Auto sync off");
+      updateCloudStatus("Local only", "off");
       return;
     }
 
-    updateCloudStatus("Auto syncing...");
+    updateCloudStatus("Syncing…", "syncing");
     scheduleCloudConnect();
   });
 
@@ -320,12 +490,12 @@ if (profileListEl) {
       return;
     }
 
-    const cardEl = target.closest("[data-profile-id]");
-    if (!(cardEl instanceof HTMLButtonElement)) {
+    const selectEl = target.closest(".profile-select-button");
+    if (!(selectEl instanceof HTMLButtonElement)) {
       return;
     }
 
-    const profileId = cardEl.dataset.profileId;
+    const profileId = selectEl.dataset.profileId;
     if (!profileId) {
       return;
     }
@@ -372,217 +542,15 @@ if (profileFormEl) {
   });
 }
 
-backButton.addEventListener("click", () => {
-  showMenu();
-});
-
-pauseButton.addEventListener("click", () => {
-  if (!activeGame) {
-    return;
-  }
-
-  activeGame.togglePause();
-  drawFrame();
-});
-
-restartButton.addEventListener("click", () => {
-  if (!activeGame) {
-    return;
-  }
-
-  activeGame.restart();
-  drawFrame();
-});
-
-touchControlsEl.addEventListener("pointerdown", (event) => {
-  if (!activeGame) {
-    return;
-  }
-
-  if (event.pointerType === "mouse") {
-    return;
-  }
-
-  const target = event.target;
-  if (!(target instanceof HTMLButtonElement)) {
-    return;
-  }
-
-  const action = target.dataset.action;
-  if (!action) {
-    return;
-  }
-
-  event.preventDefault();
-  startTouchHold(action);
-}, { passive: false });
-
-touchControlsEl.addEventListener("pointerup", (event) => {
-  if (event.pointerType !== "mouse") {
-    event.preventDefault();
-  }
-  stopTouchHold();
-}, { passive: false });
-
-touchControlsEl.addEventListener("pointercancel", () => {
-  stopTouchHold();
-});
-
-touchControlsEl.addEventListener("pointerleave", () => {
-  stopTouchHold();
-});
-
-touchControlsEl.addEventListener("click", (event) => {
-  if (!activeGame) {
-    return;
-  }
-
-  const target = event.target;
-  if (!(target instanceof HTMLButtonElement)) {
-    return;
-  }
-
-  const action = target.dataset.action;
-  if (!action) {
-    return;
-  }
-
-  if (activeGame.onControl(action)) {
-    drawFrame();
-  }
-});
-
-document.addEventListener("keydown", (event) => {
-  if (!activeGame) {
-    return;
-  }
-
-  if (event.key === "Escape") {
-    event.preventDefault();
-    showMenu();
-    return;
-  }
-
-  if (activeGame.onKeyDown(event.key)) {
-    event.preventDefault();
-    drawFrame();
-  }
-});
-
-document.addEventListener("keyup", (event) => {
-  if (!activeGame) {
-    return;
-  }
-
-  if (activeGame.onKeyUp(event.key)) {
-    event.preventDefault();
-  }
-});
-
-document.addEventListener("touchmove", (event) => {
-  if (!activeGame) {
-    return;
-  }
-
-  event.preventDefault();
-}, { passive: false });
-
-stageCanvas.addEventListener("touchstart", (event) => {
-  if (!activeGame) {
-    return;
-  }
-
-  event.preventDefault();
-  const touch = event.changedTouches[0];
-  swipeTouchStartX = touch.clientX;
-  swipeTouchStartY = touch.clientY;
-  swipeTouchId = touch.identifier;
-  swipeTouchStartTime = Date.now();
-}, { passive: false });
-
-stageCanvas.addEventListener("touchend", (event) => {
-  if (!activeGame) {
-    return;
-  }
-
-  event.preventDefault();
-
-  const touch = Array.from(event.changedTouches).find(
-    (t) => t.identifier === swipeTouchId,
-  );
-  if (!touch) {
-    return;
-  }
-
-  swipeTouchId = null;
-
-  const dx = touch.clientX - swipeTouchStartX;
-  const dy = touch.clientY - swipeTouchStartY;
-  const absDx = Math.abs(dx);
-  const absDy = Math.abs(dy);
-  const elapsedMs = Date.now() - swipeTouchStartTime;
-
-  let action;
-  if (absDx < SWIPE_MIN_DISTANCE && absDy < SWIPE_MIN_DISTANCE) {
-    action = elapsedMs >= TOUCH_LONG_PRESS_MS ? "FLAG" : "SELECT";
-  } else if (absDx >= absDy) {
-    action = dx > 0 ? "RIGHT" : "LEFT";
-  } else {
-    action = dy > 0 ? "DOWN" : "UP";
-  }
-
-  if (activeGame.onControl(action)) {
-    drawFrame();
-  }
-}, { passive: false });
-
-stageCanvas.addEventListener("touchcancel", () => {
-  swipeTouchId = null;
-  swipeTouchStartTime = 0;
-});
-
-applyGameFilter();
-initializeGameCardBestLabels();
-initializeProfiles();
-initializeCloudSync();
-if (!isTouchDevice) {
-  startGamepadPolling();
-}
-
-function startGame(gameId) {
-  if (!activeProfileId) {
-    showProfileGate("Choose a profile first.");
-    return;
-  }
-
-  stopLoop();
-  resetGamepadStates();
-
-  activeGameId = gameId;
-  activeGame = games[gameId];
-  applyDifficultyToGame(activeGame);
-
-  if (profileGateEl) {
-    profileGateEl.classList.add("hidden");
-  }
-  menuEl.classList.add("hidden");
-  gameScreenEl.classList.remove("hidden");
-
-  gameTitleEl.textContent = activeGame.title;
-  renderTouchControls(activeGame.controlScheme);
-
-  activeGame.start();
-  drawFrame();
-  scheduleTick();
-}
-
 function showMenu() {
   stopLoop();
-  resetGamepadStates();
-  stopTouchHold();
+  inputManager.resetGamepadStates();
+  inputManager.stopTouchHold();
+  hideControlsOverlay(false);
 
   if (activeGame) {
     activeGame.stop();
+    void pushCloudSnapshot({ announce: false });
   }
 
   activeGame = null;
@@ -595,9 +563,15 @@ function showMenu() {
   gameScreenEl.classList.add("hidden");
 
   clearCanvas(context);
+
+  if (lastFocusedGameCard instanceof HTMLElement) {
+    lastFocusedGameCard.focus();
+  }
 }
 
 function applyGameFilter() {
+  let visibleCount = 0;
+
   for (const filterButton of filterButtons) {
     const filter = filterButton.dataset.filter || "all";
     filterButton.classList.toggle("is-active", filter === activeFilter);
@@ -608,10 +582,35 @@ function applyGameFilter() {
       .split(" ")
       .filter(Boolean);
 
-    const visible =
+    const matchesCategory =
       activeFilter === "all" || categories.includes(activeFilter);
 
+    const title = card.querySelector(".game-card-title")?.textContent || "";
+    const subtitle = card.querySelector(".game-card-subtitle")?.textContent || "";
+    const haystack = `${title} ${subtitle}`.toLowerCase();
+    const matchesSearch =
+      !activeSearchQuery || haystack.includes(activeSearchQuery);
+
+    const visible = matchesCategory && matchesSearch;
     card.classList.toggle("is-hidden", !visible);
+
+    const gameId = card.dataset.game;
+    const metric = gameId ? savedBestByGame[gameId] : null;
+    const bestLabel = Number.isFinite(metric)
+      ? `, saved best ${formatMetric(gameId, metric)}`
+      : "";
+    card.setAttribute(
+      "aria-label",
+      `${title}${bestLabel}. ${subtitle}`.trim(),
+    );
+
+    if (visible) {
+      visibleCount += 1;
+    }
+  }
+
+  if (gameListEmptyEl) {
+    gameListEmptyEl.classList.toggle("hidden", visibleCount > 0);
   }
 }
 
@@ -647,11 +646,11 @@ function initializeCloudSync() {
 
   if (!cloudCode) {
     cloudSyncEnabled = false;
-    updateCloudStatus("Auto sync off");
+    updateCloudStatus("Local only", "off");
     return;
   }
 
-  updateCloudStatus("Auto syncing...");
+  updateCloudStatus("Syncing…", "syncing");
   void connectCloudSync(true);
 }
 
@@ -671,33 +670,40 @@ async function connectCloudSync(silent = false) {
     cloudSyncEnabled = false;
     persistCloudCode();
     stopCloudPullLoop();
-    updateCloudStatus("Auto sync off");
+    updateCloudStatus("Local only", "off");
     return;
   }
 
   cloudCode = draftCode;
   persistCloudCode();
 
+  if (cloudPanelEl instanceof HTMLDetailsElement && !cloudPanelEl.open) {
+    cloudPanelEl.open = true;
+  }
+
   if (!silent) {
-    updateCloudStatus("Auto syncing...");
+    updateCloudStatus("Syncing…", "syncing");
   }
 
   try {
-    const snapshot = await fetchCloudSnapshot(cloudCode);
+    const remoteSnapshot = await fetchCloudSnapshot(cloudCode);
     cloudSyncEnabled = true;
 
-    if (snapshot) {
-      applyCloudSnapshot(snapshot);
-    } else {
-      await pushCloudSnapshot({ announce: false });
+    if (remoteSnapshot) {
+      applyCloudSnapshot(remoteSnapshot);
     }
 
+    await pushCloudSnapshot({ announce: !silent });
+    await flushPendingCloudSnapshot();
     startCloudPullLoop();
-    updateCloudStatus("Auto sync on");
+    updateCloudStatus("Synced", "synced");
+    if (!silent) {
+      showCloudToast("Cloud sync connected.");
+    }
   } catch (error) {
     cloudSyncEnabled = false;
     stopCloudPullLoop();
-    updateCloudStatus(describeCloudError(error), true);
+    updateCloudStatus(describeCloudError(error), "error");
   }
 }
 
@@ -745,7 +751,7 @@ async function pullCloudSnapshot() {
     }
     return true;
   } catch (error) {
-    updateCloudStatus(describeCloudError(error), true);
+    updateCloudStatus(describeCloudError(error), "error");
     return false;
   } finally {
     cloudSyncInFlight = false;
@@ -784,29 +790,36 @@ async function pushCloudSnapshot({ announce = false } = {}) {
 
   cloudSyncInFlight = true;
   if (announce) {
-    updateCloudStatus("Syncing...");
+    updateCloudStatus("Syncing…", "syncing");
   }
 
-  try {
-    const snapshot = buildCloudSnapshot();
-    const response = await fetch("/api/cloud", {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        code: cloudCode,
-        snapshot,
-      }),
-    });
+  let succeeded = false;
 
-    if (!response.ok) {
-      throw new Error(`cloud_write_${response.status}`);
+  try {
+    let snapshot = buildCloudSnapshot();
+    const remoteSnapshot = await fetchCloudSnapshot(cloudCode);
+    if (remoteSnapshot) {
+      snapshot = mergeCloudSnapshots(snapshot, remoteSnapshot, {
+        difficultyOptions: DIFFICULTY_OPTIONS,
+        profileColors: PROFILE_COLORS,
+        maxProfiles: MAX_PROFILES,
+        lowerIsBetterGames: LOWER_IS_BETTER_GAMES,
+      });
     }
+
+    await putCloudSnapshot(cloudCode, snapshot);
+    clearPendingCloudSnapshot();
+    succeeded = true;
 
     if (announce) {
-      updateCloudStatus("Synced");
+      updateCloudStatus("Synced", "synced");
+    } else {
+      updateCloudStatus("Synced", "synced");
     }
+  } catch (error) {
+    savePendingCloudSnapshot(buildCloudSnapshot());
+    updateCloudStatus(describeCloudError(error), "pending");
+    succeeded = false;
   } finally {
     cloudSyncInFlight = false;
 
@@ -816,22 +829,24 @@ async function pushCloudSnapshot({ announce = false } = {}) {
     }
   }
 
-  return true;
+  return succeeded;
 }
 
-async function fetchCloudSnapshot(code) {
-  const response = await fetch(`/api/cloud?code=${encodeURIComponent(code)}`);
-
-  if (response.status === 404) {
-    return null;
+async function flushPendingCloudSnapshot() {
+  const pending = loadPendingCloudSnapshot();
+  if (!pending?.snapshot || !cloudSyncEnabled || !cloudCode) {
+    return false;
   }
 
-  if (!response.ok) {
-    throw new Error(`cloud_read_${response.status}`);
+  try {
+    await putCloudSnapshot(cloudCode, pending.snapshot);
+    clearPendingCloudSnapshot();
+    updateCloudStatus("Synced", "synced");
+    return true;
+  } catch {
+    updateCloudStatus("Pending upload", "pending");
+    return false;
   }
-
-  const payload = await response.json();
-  return payload && typeof payload === "object" ? payload.snapshot || null : null;
 }
 
 function buildCloudSnapshot() {
@@ -846,41 +861,50 @@ function buildCloudSnapshot() {
 }
 
 function applyCloudSnapshot(snapshot) {
-  const sanitized = sanitizeCloudSnapshot(snapshot);
+  const sanitized = sanitizeCloudSnapshot(
+    snapshot,
+    DIFFICULTY_OPTIONS,
+    PROFILE_COLORS,
+    MAX_PROFILES,
+  );
   if (!sanitized) {
     return;
   }
 
-  const remoteProfiles = sanitized.profiles;
-  const remoteScoreStore = sanitized.scoreStoreByProfile;
+  const localSnapshot = buildCloudSnapshot();
+  const merged = mergeCloudSnapshots(localSnapshot, {
+    ...sanitized,
+    scoreStoreByProfile: sanitized.scoreStoreByProfile,
+    profiles: sanitized.profiles,
+    updatedAt: sanitized.updatedAt || snapshot.updatedAt,
+  }, {
+    difficultyOptions: DIFFICULTY_OPTIONS,
+    profileColors: PROFILE_COLORS,
+    maxProfiles: MAX_PROFILES,
+    lowerIsBetterGames: LOWER_IS_BETTER_GAMES,
+  });
 
-  const mergedProfiles = mergeProfiles(remoteProfiles, profiles);
-  const mergedScoreStore = mergeScoreStoreByProfile(
-    remoteScoreStore,
-    scoreStoreByProfile,
-  );
-
-  if (mergedProfiles.length === 0) {
+  if (merged.profiles.length === 0) {
     return;
   }
 
   suppressCloudSync = true;
   try {
-    profiles = mergedProfiles;
-    scoreStoreByProfile = mergedScoreStore;
+    profiles = merged.profiles;
+    scoreStoreByProfile = merged.scoreStoreByProfile;
 
     persistProfiles();
     persistScoreStoreByProfile();
 
     const preferredProfile =
-      mergedProfiles.find((profile) => profile.id === sanitized.activeProfileId) ||
-      mergedProfiles.find((profile) => profile.id === activeProfileId) ||
-      mergedProfiles[0];
+      merged.profiles.find((profile) => profile.id === merged.activeProfileId) ||
+      merged.profiles.find((profile) => profile.id === activeProfileId) ||
+      merged.profiles[0];
 
     setActiveProfile(preferredProfile.id, true);
 
-    if (sanitized.activeDifficulty) {
-      setActiveDifficulty(sanitized.activeDifficulty, true);
+    if (merged.activeDifficulty) {
+      setActiveDifficulty(merged.activeDifficulty, true);
     }
   } finally {
     suppressCloudSync = false;
@@ -888,161 +912,180 @@ function applyCloudSnapshot(snapshot) {
 
   renderProfileCards();
   refreshGameCardBestLabels();
+  applyGameFilter();
   if (activeGame) {
     drawFrame();
   }
 }
 
-function sanitizeCloudSnapshot(snapshot) {
-  if (!snapshot || typeof snapshot !== "object") {
-    return null;
-  }
-
-  const profilesFromCloud = sanitizeProfilesArray(snapshot.profiles);
-  const scoreStoreByProfileFromCloud = sanitizeScoreStoreByProfile(
-    snapshot.scoreStoreByProfile,
-  );
-
-  if (profilesFromCloud.length === 0) {
-    return null;
-  }
-
-  const activeProfileFromCloud =
-    typeof snapshot.activeProfileId === "string"
-      ? String(snapshot.activeProfileId).trim()
-      : "";
-
-  const difficultyFromCloud = String(snapshot.activeDifficulty || "").toLowerCase();
-
-  return {
-    profiles: profilesFromCloud,
-    scoreStoreByProfile: scoreStoreByProfileFromCloud,
-    activeProfileId: activeProfileFromCloud,
-    activeDifficulty: DIFFICULTY_OPTIONS.has(difficultyFromCloud)
-      ? difficultyFromCloud
-      : null,
-  };
-}
-
-function mergeProfiles(primaryProfiles, secondaryProfiles) {
-  const merged = [];
-  const seenIds = new Set();
-  const seenNames = new Set();
-
-  for (const source of [primaryProfiles, secondaryProfiles]) {
-    for (const profile of source) {
-      const id = String(profile.id || "").trim();
-      const name = sanitizeProfileName(profile.name || "");
-      const nameKey = name.toLowerCase();
-
-      if (!id || !name) {
-        continue;
-      }
-
-      if (seenIds.has(id) || seenNames.has(nameKey)) {
-        continue;
-      }
-
-      seenIds.add(id);
-      seenNames.add(nameKey);
-      merged.push({ id, name, color: profile.color || PROFILE_COLORS[merged.length % PROFILE_COLORS.length] });
-
-      if (merged.length >= MAX_PROFILES) {
-        return merged;
-      }
-    }
-  }
-
-  return merged;
-}
-
-function mergeScoreStoreByProfile(primaryStore, secondaryStore) {
-  const result = {};
-  const profileIds = new Set([
-    ...Object.keys(primaryStore || {}),
-    ...Object.keys(secondaryStore || {}),
-  ]);
-
-  for (const profileId of profileIds) {
-    const primaryScores = sanitizeScoreMap(primaryStore?.[profileId]);
-    const secondaryScores = sanitizeScoreMap(secondaryStore?.[profileId]);
-    const mergedScores = {};
-
-    const gameIds = new Set([
-      ...Object.keys(primaryScores),
-      ...Object.keys(secondaryScores),
-    ]);
-
-    for (const gameId of gameIds) {
-      const mergedMetric = pickBetterMetric(
-        gameId,
-        primaryScores[gameId],
-        secondaryScores[gameId],
-      );
-
-      if (Number.isFinite(mergedMetric)) {
-        mergedScores[gameId] = mergedMetric;
-      }
-    }
-
-    if (Object.keys(mergedScores).length > 0) {
-      result[profileId] = mergedScores;
-    }
-  }
-
-  return result;
-}
-
-function sanitizeCloudCode(rawCode) {
-  return String(rawCode || "")
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9_-]/g, "")
-    .slice(0, 32);
-}
-
 function loadCloudCode() {
-  try {
-    const raw = localStorage.getItem(CLOUD_CODE_STORAGE_KEY);
-    return sanitizeCloudCode(raw);
-  } catch {
-    return "";
-  }
+  return sanitizeCloudCode(safeStorageGet(CLOUD_CODE_STORAGE_KEY));
 }
 
 function persistCloudCode() {
-  try {
-    if (cloudCode) {
-      localStorage.setItem(CLOUD_CODE_STORAGE_KEY, cloudCode);
-    } else {
-      localStorage.removeItem(CLOUD_CODE_STORAGE_KEY);
-    }
-  } catch {
-    // Ignore storage failures.
+  if (cloudCode) {
+    safeStorageSet(CLOUD_CODE_STORAGE_KEY, cloudCode);
+  } else {
+    safeStorageRemove(CLOUD_CODE_STORAGE_KEY);
   }
 }
 
-function updateCloudStatus(message, isError = false) {
+function updateCloudStatus(message, state = "off") {
   if (!cloudStatusEl) {
     return;
   }
 
   cloudStatusEl.textContent = message;
-  cloudStatusEl.classList.toggle("is-error", isError);
+  cloudStatusEl.dataset.state = state;
+  cloudStatusEl.classList.toggle("is-error", state === "error");
 }
 
-function describeCloudError(error) {
-  const code = String(error?.message || "");
-  if (code.includes("404")) {
-    return "Cloud API not found (deploy latest build).";
+function showCloudToast(message) {
+  if (!cloudToastEl) {
+    return;
   }
-  if (code.includes("401") || code.includes("403")) {
-    return "Cloud auth failed (check Vercel env vars).";
+
+  cloudToastEl.textContent = message;
+  cloudToastEl.classList.remove("hidden");
+  setTimeout(() => {
+    cloudToastEl.classList.add("hidden");
+  }, 3000);
+}
+
+let appStatusTimer = null;
+
+function setAppStatus(message, isError = false, autoClearMs = 0) {
+  if (!appStatusEl) {
+    return;
   }
-  if (code.includes("500") || code.includes("503")) {
-    return "Cloud unavailable right now.";
+
+  appStatusEl.textContent = message;
+  appStatusEl.classList.toggle("is-error", isError);
+
+  if (appStatusTimer) {
+    clearTimeout(appStatusTimer);
+    appStatusTimer = null;
   }
-  return "Cloud sync failed. Working locally.";
+
+  if (autoClearMs > 0) {
+    appStatusTimer = setTimeout(() => {
+      appStatusEl.textContent = "";
+      appStatusEl.classList.remove("is-error");
+    }, autoClearMs);
+  }
+}
+
+function loadControlModeSetting() {
+  const raw = String(safeStorageGet(STORAGE_KEYS.CONTROL_MODE) || "auto").toLowerCase();
+  return CONTROL_MODE_OPTIONS.has(raw) ? raw : "auto";
+}
+
+function persistControlModeSetting() {
+  safeStorageSet(STORAGE_KEYS.CONTROL_MODE, controlMode);
+}
+
+function loadSwipeSensitivitySetting() {
+  const raw = String(safeStorageGet(STORAGE_KEYS.SWIPE_SENSITIVITY) || "normal").toLowerCase();
+  return raw in SWIPE_SENSITIVITY_PRESETS ? raw : "normal";
+}
+
+function loadLongPressPresetSetting() {
+  const raw = String(safeStorageGet(STORAGE_KEYS.LONG_PRESS) || "normal").toLowerCase();
+  return raw in LONG_PRESS_PRESETS ? raw : "normal";
+}
+
+function hasSeenControlsHint() {
+  return safeStorageGet(STORAGE_KEYS.CONTROLS_HINT) === "seen";
+}
+
+function markControlsHintSeen() {
+  safeStorageSet(STORAGE_KEYS.CONTROLS_HINT, "seen");
+}
+
+function showControlsOverlay(isFirstRun) {
+  if (!controlsOverlayEl) {
+    return;
+  }
+
+  if (controlsOverlayHintEl && activeGame) {
+    controlsOverlayHintEl.textContent = inputManager.getControlHintForGame(activeGame);
+  }
+
+  controlsOverlayEl.classList.remove("hidden");
+  if (isFirstRun) {
+    markControlsHintSeen();
+  }
+}
+
+function hideControlsOverlay(markSeen) {
+  if (!controlsOverlayEl) {
+    return;
+  }
+
+  controlsOverlayEl.classList.add("hidden");
+  if (markSeen) {
+    markControlsHintSeen();
+  }
+}
+
+function updateControlsHints() {
+  if (!activeGame) {
+    return;
+  }
+
+  const hint = inputManager.getControlHintForGame(activeGame);
+  if (controlsGameHintEl) {
+    controlsGameHintEl.textContent = hint;
+  }
+  if (controlsOverlayHintEl) {
+    controlsOverlayHintEl.textContent = hint;
+  }
+}
+
+function loadRecentGames() {
+  const stored = safeStorageGetJson(STORAGE_KEYS.RECENT_GAMES, []);
+  return Array.isArray(stored)
+    ? stored.filter((id) => typeof id === "string" && games[id]).slice(0, 5)
+    : [];
+}
+
+function recordRecentGame(gameId) {
+  const recent = loadRecentGames().filter((id) => id !== gameId);
+  recent.unshift(gameId);
+  safeStorageSetJson(STORAGE_KEYS.RECENT_GAMES, recent.slice(0, 5));
+  renderRecentGames();
+}
+
+function renderRecentGames() {
+  if (!recentGamesEl || !recentGamesListEl) {
+    return;
+  }
+
+  const recent = loadRecentGames();
+  recentGamesListEl.innerHTML = "";
+
+  if (recent.length === 0) {
+    recentGamesEl.classList.add("hidden");
+    return;
+  }
+
+  recentGamesEl.classList.remove("hidden");
+
+  for (const gameId of recent) {
+    const game = games[gameId];
+    if (!game) {
+      continue;
+    }
+
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "recent-chip";
+    chip.textContent = game.title;
+    chip.addEventListener("click", () => {
+      startGame(gameId);
+    });
+    recentGamesListEl.appendChild(chip);
+  }
 }
 
 function initializeProfiles() {
@@ -1090,10 +1133,6 @@ function createProfile(name, index) {
   };
 }
 
-function sanitizeProfileName(rawName) {
-  return String(rawName).trim().replace(/\s+/g, " ").slice(0, 18);
-}
-
 function renderProfileCards() {
   if (!profileListEl) {
     return;
@@ -1102,15 +1141,20 @@ function renderProfileCards() {
   profileListEl.innerHTML = "";
 
   for (const profile of profiles) {
-    const buttonEl = document.createElement("button");
-    buttonEl.type = "button";
-    buttonEl.className = "profile-card";
-    buttonEl.dataset.profileId = profile.id;
-    buttonEl.setAttribute("role", "listitem");
+    const cardEl = document.createElement("div");
+    cardEl.className = "profile-card";
+    cardEl.dataset.profileId = profile.id;
+    cardEl.setAttribute("role", "listitem");
 
     if (profile.id === activeProfileId) {
-      buttonEl.classList.add("is-active");
+      cardEl.classList.add("is-active");
+      cardEl.setAttribute("aria-current", "true");
     }
+
+    const selectButton = document.createElement("button");
+    selectButton.type = "button";
+    selectButton.className = "profile-select-button";
+    selectButton.dataset.profileId = profile.id;
 
     const avatarEl = document.createElement("span");
     avatarEl.className = "profile-avatar";
@@ -1121,10 +1165,88 @@ function renderProfileCards() {
     nameEl.className = "profile-name";
     nameEl.textContent = profile.name;
 
-    buttonEl.appendChild(avatarEl);
-    buttonEl.appendChild(nameEl);
-    profileListEl.appendChild(buttonEl);
+    selectButton.appendChild(avatarEl);
+    selectButton.appendChild(nameEl);
+
+    const actionsEl = document.createElement("div");
+    actionsEl.className = "profile-actions";
+
+    const renameButton = document.createElement("button");
+    renameButton.type = "button";
+    renameButton.className = "profile-action-button";
+    renameButton.textContent = "Rename";
+    renameButton.addEventListener("click", () => {
+      renameProfile(profile.id);
+    });
+
+    actionsEl.appendChild(renameButton);
+
+    if (profile.id !== activeProfileId) {
+      const deleteButton = document.createElement("button");
+      deleteButton.type = "button";
+      deleteButton.className = "profile-action-button";
+      deleteButton.textContent = "Delete";
+      deleteButton.addEventListener("click", () => {
+        deleteProfile(profile.id);
+      });
+      actionsEl.appendChild(deleteButton);
+    }
+
+    cardEl.appendChild(selectButton);
+    cardEl.appendChild(actionsEl);
+    profileListEl.appendChild(cardEl);
   }
+}
+
+function renameProfile(profileId) {
+  const profile = profiles.find((item) => item.id === profileId);
+  if (!profile) {
+    return;
+  }
+
+  const nextName = sanitizeProfileName(
+    window.prompt("Rename profile", profile.name) || "",
+  );
+  if (!nextName || nextName === profile.name) {
+    return;
+  }
+
+  const lower = nextName.toLowerCase();
+  if (profiles.some((item) => item.id !== profileId && item.name.toLowerCase() === lower)) {
+    setProfileMessage("That profile name already exists.", true);
+    return;
+  }
+
+  profile.name = nextName;
+  persistProfiles();
+  renderProfileCards();
+  if (profile.id === activeProfileId && activeProfileNameEl) {
+    activeProfileNameEl.textContent = nextName;
+  }
+}
+
+function deleteProfile(profileId) {
+  if (profileId === activeProfileId) {
+    setProfileMessage("Switch to another profile before deleting this one.", true);
+    return;
+  }
+
+  const profile = profiles.find((item) => item.id === profileId);
+  if (!profile) {
+    return;
+  }
+
+  const confirmed = window.confirm(`Delete profile "${profile.name}" and all scores?`);
+  if (!confirmed) {
+    return;
+  }
+
+  profiles = profiles.filter((item) => item.id !== profileId);
+  delete scoreStoreByProfile[profileId];
+  persistProfiles();
+  persistScoreStoreByProfile();
+  renderProfileCards();
+  setProfileMessage("");
 }
 
 function setActiveProfile(profileId, persist) {
@@ -1141,6 +1263,10 @@ function setActiveProfile(profileId, persist) {
     activeProfileNameEl.textContent = activeProfile.name;
   }
 
+  if (activeProfileDotEl) {
+    activeProfileDotEl.style.background = activeProfile.color;
+  }
+
   if (persist) {
     persistActiveProfileId();
   }
@@ -1152,8 +1278,8 @@ function setActiveProfile(profileId, persist) {
 
 function showProfileGate(message = "Choose a profile.") {
   stopLoop();
-  resetGamepadStates();
-  stopTouchHold();
+  inputManager.resetGamepadStates();
+  inputManager.stopTouchHold();
 
   if (activeGame) {
     activeGame.stop();
@@ -1210,13 +1336,13 @@ function applyDifficultyToGame(game) {
 }
 
 function scheduleTick() {
-  if (!activeGame) {
+  if (!activeGame || document.hidden) {
     return;
   }
 
   const delay = activeGame.getTickMs();
   tickTimer = setTimeout(() => {
-    if (!activeGame || !games[activeGameId]) {
+    if (!activeGame || !games[activeGameId] || document.hidden) {
       return;
     }
 
@@ -1238,6 +1364,13 @@ function drawFrame() {
   statusEl.textContent = hud.status;
   pauseButton.textContent = hud.pauseLabel;
   pauseButton.disabled = hud.pauseDisabled;
+
+  const savedBest = savedBestByGame[activeGameId];
+  if (bestHudEl) {
+    bestHudEl.textContent = Number.isFinite(savedBest)
+      ? `Best: ${formatMetric(activeGameId, savedBest)}`
+      : "Best: -";
+  }
 }
 
 function stopLoop() {
@@ -1245,64 +1378,6 @@ function stopLoop() {
     clearTimeout(tickTimer);
     tickTimer = null;
   }
-}
-
-function renderTouchControls(_schemeName) {
-  const scheme = CONTROL_SCHEMES.none;
-  touchControlsEl.innerHTML = "";
-
-  if (scheme.length === 0) {
-    touchControlsEl.classList.add("is-empty");
-    return;
-  }
-
-  touchControlsEl.classList.remove("is-empty");
-
-  for (const rowActions of scheme) {
-    const rowEl = document.createElement("div");
-    rowEl.className = `touch-row cols-${rowActions.length}`;
-
-    for (const action of rowActions) {
-      const buttonEl = document.createElement("button");
-      buttonEl.type = "button";
-      buttonEl.dataset.action = action;
-      buttonEl.setAttribute("aria-label", ACTION_ARIA_LABELS[action] || action.toLowerCase());
-      buttonEl.textContent = ACTION_LABELS[action] || action;
-      rowEl.appendChild(buttonEl);
-    }
-
-    touchControlsEl.appendChild(rowEl);
-  }
-}
-
-function startTouchHold(action) {
-  stopTouchHold();
-  touchHoldAction = action;
-
-  if (activeGame && activeGame.onControl(action)) {
-    drawFrame();
-  }
-
-  touchHoldTimer = setTimeout(function repeatHold() {
-    if (!touchHoldAction || !activeGame) {
-      return;
-    }
-
-    if (activeGame.onControl(touchHoldAction)) {
-      drawFrame();
-    }
-
-    touchHoldTimer = setTimeout(repeatHold, TOUCH_HOLD_REPEAT_MS);
-  }, TOUCH_HOLD_INITIAL_MS);
-}
-
-function stopTouchHold() {
-  if (touchHoldTimer) {
-    clearTimeout(touchHoldTimer);
-    touchHoldTimer = null;
-  }
-
-  touchHoldAction = null;
 }
 
 function mergeSavedBestIntoHud(gameId, scoreText) {
@@ -1409,94 +1484,34 @@ function updateSavedBest(gameId, candidate) {
 }
 
 function loadDifficultySetting() {
-  try {
-    const raw = localStorage.getItem(DIFFICULTY_STORAGE_KEY);
-    const normalized = String(raw || "").toLowerCase();
-    return DIFFICULTY_OPTIONS.has(normalized) ? normalized : "normal";
-  } catch {
-    return "normal";
-  }
+  const raw = safeStorageGet(DIFFICULTY_STORAGE_KEY);
+  const normalized = String(raw || "").toLowerCase();
+  return DIFFICULTY_OPTIONS.has(normalized) ? normalized : "normal";
 }
 
 function persistDifficultySetting() {
-  try {
-    localStorage.setItem(DIFFICULTY_STORAGE_KEY, activeDifficulty);
-  } catch {
-    // Ignore storage failures.
-  }
-
+  safeStorageSet(DIFFICULTY_STORAGE_KEY, activeDifficulty);
   scheduleCloudSync();
 }
 
 function loadProfiles() {
-  try {
-    const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
-    if (!raw) {
-      return [];
-    }
-
-    const parsed = JSON.parse(raw);
-    return sanitizeProfilesArray(parsed);
-  } catch {
-    return [];
-  }
-}
-
-function sanitizeProfilesArray(maybeProfiles) {
-  if (!Array.isArray(maybeProfiles)) {
-    return [];
-  }
-
-  const sanitized = [];
-  const seen = new Set();
-
-  for (let index = 0; index < maybeProfiles.length; index += 1) {
-    const item = maybeProfiles[index];
-    if (!item || typeof item !== "object") {
-      continue;
-    }
-
-    const id = String(item.id || "").trim();
-    const name = sanitizeProfileName(item.name || "");
-    const color = String(item.color || PROFILE_COLORS[index % PROFILE_COLORS.length]).trim();
-
-    if (!id || !name || seen.has(id)) {
-      continue;
-    }
-
-    seen.add(id);
-    sanitized.push({ id, name, color });
-
-    if (sanitized.length >= MAX_PROFILES) {
-      break;
-    }
-  }
-
-  return sanitized;
+  const parsed = safeStorageGetJson(PROFILE_STORAGE_KEY, []);
+  return sanitizeProfilesArray(parsed, PROFILE_COLORS, MAX_PROFILES);
 }
 
 function persistProfiles() {
-  try {
-    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profiles));
-  } catch {
-    // Ignore storage failures (private mode, quota, blocked storage).
-  }
-
+  safeStorageSetJson(PROFILE_STORAGE_KEY, profiles);
   scheduleCloudSync();
 }
 
 function loadActiveProfileId() {
-  try {
-    const raw = localStorage.getItem(ACTIVE_PROFILE_STORAGE_KEY);
-    if (!raw) {
-      return null;
-    }
-
-    const profileId = String(raw).trim();
-    return profileId || null;
-  } catch {
+  const raw = safeStorageGet(ACTIVE_PROFILE_STORAGE_KEY);
+  if (!raw) {
     return null;
   }
+
+  const profileId = String(raw).trim();
+  return profileId || null;
 }
 
 function persistActiveProfileId() {
@@ -1504,59 +1519,18 @@ function persistActiveProfileId() {
     return;
   }
 
-  try {
-    localStorage.setItem(ACTIVE_PROFILE_STORAGE_KEY, activeProfileId);
-  } catch {
-    // Ignore storage failures.
-  }
-
+  safeStorageSet(ACTIVE_PROFILE_STORAGE_KEY, activeProfileId);
   scheduleCloudSync();
 }
 
 function loadScoreStoreByProfile() {
-  try {
-    const raw = localStorage.getItem(PROFILE_SCORE_STORAGE_KEY);
-    if (!raw) {
-      return {};
-    }
-
-    const parsed = JSON.parse(raw);
-    return sanitizeScoreStoreByProfile(parsed);
-  } catch {
-    return {};
-  }
-}
-
-function sanitizeScoreStoreByProfile(maybeStore) {
-  if (!maybeStore || typeof maybeStore !== "object") {
-    return {};
-  }
-
-  const sanitized = {};
-  for (const [profileId, maybeMap] of Object.entries(maybeStore)) {
-    const cleanProfileId = String(profileId || "").trim();
-    if (!cleanProfileId) {
-      continue;
-    }
-
-    sanitized[cleanProfileId] = sanitizeScoreMap(maybeMap);
-  }
-
-  return sanitized;
+  const parsed = safeStorageGetJson(PROFILE_SCORE_STORAGE_KEY, {});
+  return sanitizeScoreStoreByProfile(parsed);
 }
 
 function loadLegacySavedBestScores() {
-  try {
-    const raw = localStorage.getItem(LEGACY_SCORE_STORAGE_KEY);
-    if (!raw) {
-      return {};
-    }
-
-    const parsed = JSON.parse(raw);
-    return sanitizeScoreMap(parsed);
-  } catch {
-    return {};
-  }
+  const parsed = safeStorageGetJson(LEGACY_SCORE_STORAGE_KEY, {});
+  return sanitizeScoreMap(parsed);
 }
 
 function sanitizeScoreMap(maybeMap) {
@@ -1591,11 +1565,7 @@ function migrateLegacyScores(defaultProfileId) {
   scoreStoreByProfile[defaultProfileId] = legacyScores;
   persistScoreStoreByProfile();
 
-  try {
-    localStorage.removeItem(LEGACY_SCORE_STORAGE_KEY);
-  } catch {
-    // Ignore cleanup failures.
-  }
+  safeStorageRemove(LEGACY_SCORE_STORAGE_KEY);
 }
 
 function loadScoresForProfile(profileId) {
@@ -1607,15 +1577,7 @@ function loadScoresForProfile(profileId) {
 }
 
 function persistScoreStoreByProfile() {
-  try {
-    localStorage.setItem(
-      PROFILE_SCORE_STORAGE_KEY,
-      JSON.stringify(scoreStoreByProfile),
-    );
-  } catch {
-    // Ignore storage failures (private mode, quota, blocked storage).
-  }
-
+  safeStorageSetJson(PROFILE_SCORE_STORAGE_KEY, scoreStoreByProfile);
   scheduleCloudSync();
 }
 
@@ -1657,174 +1619,5 @@ function refreshGameCardBestLabels() {
 
     bestEl.textContent = "Saved best: -";
     bestEl.classList.add("is-empty");
-  }
-}
-
-function startGamepadPolling() {
-  if (typeof requestAnimationFrame !== "function") {
-    return;
-  }
-
-  resetGamepadStates();
-
-  const loop = (timestamp) => {
-    pollGamepadFrame(timestamp);
-    gamepadAnimationFrame = requestAnimationFrame(loop);
-  };
-
-  gamepadAnimationFrame = requestAnimationFrame(loop);
-}
-
-function pollGamepadFrame(timestamp) {
-  if (!activeGame || typeof navigator.getGamepads !== "function") {
-    resetGamepadStates();
-    return;
-  }
-
-  const gamepad = getPrimaryGamepad();
-  if (!gamepad) {
-    resetGamepadStates();
-    return;
-  }
-
-  const actions = collectGamepadActions(gamepad);
-  let changed = false;
-
-  changed = handleGamepadEdgeActions(actions.edgeActions) || changed;
-  changed = handleGamepadControlActions(actions.controlActions, timestamp) || changed;
-
-  if (changed && activeGame) {
-    drawFrame();
-  }
-}
-
-function getPrimaryGamepad() {
-  const pads = navigator.getGamepads();
-  if (!pads) {
-    return null;
-  }
-
-  for (const pad of pads) {
-    if (pad && pad.connected) {
-      return pad;
-    }
-  }
-
-  return null;
-}
-
-function collectGamepadActions(gamepad) {
-  const controlActions = new Set();
-  const edgeActions = new Set();
-
-  for (const mapping of GAMEPAD_BUTTON_CONTROL_MAP) {
-    if (gamepad.buttons[mapping.button]?.pressed) {
-      controlActions.add(mapping.action);
-    }
-  }
-
-  const axisDirections = resolveGamepadAxes(gamepad);
-  for (const direction of axisDirections) {
-    controlActions.add(direction);
-  }
-
-  for (const mapping of GAMEPAD_BUTTON_EDGE_MAP) {
-    if (gamepad.buttons[mapping.button]?.pressed) {
-      edgeActions.add(mapping.action);
-    }
-  }
-
-  return { controlActions, edgeActions };
-}
-
-function resolveGamepadAxes(gamepad) {
-  const x = gamepad.axes[0] ?? 0;
-  const y = gamepad.axes[1] ?? 0;
-
-  const absX = Math.abs(x);
-  const absY = Math.abs(y);
-
-  if (absX < GAMEPAD_AXIS_THRESHOLD && absY < GAMEPAD_AXIS_THRESHOLD) {
-    return [];
-  }
-
-  if (absX >= absY) {
-    return [x < 0 ? "LEFT" : "RIGHT"];
-  }
-
-  return [y < 0 ? "UP" : "DOWN"];
-}
-
-function handleGamepadEdgeActions(edgeActions) {
-  let changed = false;
-
-  for (const mapping of GAMEPAD_BUTTON_EDGE_MAP) {
-    const isPressed = edgeActions.has(mapping.action);
-    const wasPressed = gamepadEdgeState.get(mapping.action) || false;
-
-    if (isPressed && !wasPressed) {
-      if (mapping.action === "BACK" && activeGame) {
-        showMenu();
-        changed = true;
-      } else if (mapping.action === "PAUSE" && activeGame) {
-        activeGame.togglePause();
-        changed = true;
-      } else if (mapping.action === "RESTART" && activeGame) {
-        activeGame.restart();
-        changed = true;
-      }
-    }
-
-    gamepadEdgeState.set(mapping.action, isPressed);
-  }
-
-  return changed;
-}
-
-function handleGamepadControlActions(controlActions, timestamp) {
-  let changed = false;
-
-  for (const action of GAMEPAD_CONTROL_ACTIONS) {
-    const isPressed = controlActions.has(action);
-    const holdState = gamepadControlState.get(action) || {
-      pressed: false,
-      nextRepeat: 0,
-    };
-
-    if (isPressed) {
-      if (!holdState.pressed) {
-        holdState.pressed = true;
-        holdState.nextRepeat = timestamp + GAMEPAD_REPEAT_INITIAL_MS;
-        changed = triggerGameControl(action) || changed;
-      } else if (timestamp >= holdState.nextRepeat) {
-        holdState.nextRepeat = timestamp + GAMEPAD_REPEAT_MS;
-        changed = triggerGameControl(action) || changed;
-      }
-    } else {
-      holdState.pressed = false;
-      holdState.nextRepeat = 0;
-    }
-
-    gamepadControlState.set(action, holdState);
-  }
-
-  return changed;
-}
-
-function triggerGameControl(action) {
-  if (!activeGame) {
-    return false;
-  }
-
-  return activeGame.onControl(action);
-}
-
-function resetGamepadStates() {
-  for (const action of GAMEPAD_CONTROL_ACTIONS) {
-    gamepadControlState.set(action, { pressed: false, nextRepeat: 0 });
-  }
-
-  for (const mapping of GAMEPAD_BUTTON_EDGE_MAP) {
-    gamepadEdgeState.set(mapping.action, false);
   }
 }

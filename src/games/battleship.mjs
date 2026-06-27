@@ -201,6 +201,16 @@ export function createBattleshipGame(ctx) {
       }
       return false;
     },
+    getControlHint() {
+      return "Tap a grid cell to fire.";
+    },
+    getGridLayout() {
+      return { cols: SIZE, rows: SIZE, offsetX: 0, offsetY: 0, cellSize: CELL };
+    },
+    onTapCell(col, row) {
+      state.cursor = { x: col, y: row };
+      return fireAtCursor();
+    },
     togglePause() {
       if (state.status === "game_over") {
         return;

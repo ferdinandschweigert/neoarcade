@@ -270,6 +270,16 @@ export function createTicTacToeGame(ctx) {
 
       return false;
     },
+    getControlHint() {
+      return "Tap a square to place your mark.";
+    },
+    getGridLayout() {
+      return { cols: 3, rows: 3, offsetX: boardX, offsetY: boardY, cellSize: cellSize };
+    },
+    onTapCell(col, row) {
+      state.cursor = row * 3 + col;
+      return placeAtCursor();
+    },
     togglePause() {
       if (state.status === "game_over") {
         return;

@@ -659,6 +659,16 @@ export function createCheckersGame(ctx) {
       }
       return false;
     },
+    getControlHint() {
+      return "Tap a piece or destination square to move.";
+    },
+    getGridLayout() {
+      return { cols: SIZE, rows: SIZE, offsetX: 0, offsetY: 0, cellSize: CELL };
+    },
+    onTapCell(col, row) {
+      state.cursor = { x: col, y: row };
+      return trySelectOrMove();
+    },
     togglePause() {
       if (state.status === "game_over") {
         return;
