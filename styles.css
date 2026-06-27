@@ -707,6 +707,133 @@ button:hover {
   margin-inline: auto;
 }
 
+#game-screen.game-play-layout {
+  max-width: none;
+  width: 100%;
+  min-height: 0;
+}
+
+body[data-panel="game"] {
+  padding: 0;
+}
+
+body[data-panel="game"] .app {
+  width: min(100vw, 1120px);
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-width: 3px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-brutal);
+}
+
+body[data-panel="game"] .app::before,
+body[data-panel="game"] .app::after {
+  display: none;
+}
+
+body[data-panel="game"] #game-screen.game-play-layout {
+  flex: 1;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 0.35rem;
+  margin-inline: 0;
+  padding-bottom: max(0.35rem, var(--safe-bottom));
+}
+
+.game-top-bar h2 {
+  font-size: clamp(1.05rem, 3.5vw, 1.55rem);
+}
+
+.game-stage-stack {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+body[data-panel="game"] .game-stage-stack {
+  overflow: hidden;
+}
+
+body[data-panel="game"] .stage-shell {
+  --stage-fit: min(
+    100%,
+    calc(100dvh - var(--game-chrome, 240px)),
+    calc(100vw - 1.5rem)
+  );
+  width: var(--stage-fit);
+  height: var(--stage-fit);
+  max-width: 720px;
+  max-height: 100%;
+  margin-top: 0;
+  flex: 0 1 auto;
+}
+
+body[data-panel="game"][data-stage-aspect="landscape"] .stage-shell {
+  --stage-fit: min(
+    100%,
+    calc((100dvh - var(--game-chrome, 220px)) * 1.05),
+    calc(100vw - 1.5rem)
+  );
+  width: min(var(--stage-fit), 920px);
+  height: auto;
+  aspect-ratio: 16 / 10;
+}
+
+body[data-panel="game"] .stage-canvas {
+  height: 100%;
+  aspect-ratio: auto;
+}
+
+body[data-panel="game"] .game-hud {
+  margin: 0;
+}
+
+body[data-panel="game"] .game-bottom-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+body[data-panel="game"] .controls-cheat-sheet {
+  margin-top: 0;
+}
+
+body[data-panel="game"] .buttons {
+  margin-top: 0;
+}
+
+body[data-panel="game"] .touch-controls {
+  margin-top: 0;
+  width: min(100%, var(--stage-fit, 100%));
+}
+
+body[data-viewport="narrow"][data-panel="game"] .app {
+  width: 100vw;
+  border-width: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding:
+    max(0.35rem, var(--safe-top))
+    max(0.45rem, var(--safe-right))
+    max(0.35rem, var(--safe-bottom))
+    max(0.45rem, var(--safe-left));
+}
+
+body[data-viewport="narrow"][data-panel="game"] .controls-cheat-sheet {
+  display: none;
+}
+
+body[data-viewport="narrow"][data-panel="game"] #back-button {
+  padding: 0.35rem 0.55rem;
+  font-size: 0.78rem;
+}
+
 .row {
   display: flex;
   justify-content: space-between;

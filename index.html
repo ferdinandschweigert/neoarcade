@@ -315,6 +315,11 @@
             <span class="game-card-title">Neon Checkers</span>
             <span class="game-card-subtitle">Forced jumps, king promotion, and deep CPU search</span>
           </button>
+          <button class="game-card" type="button" data-game="grannyrun" data-category="action" role="listitem">
+            <span class="game-card-head"><span class="game-icon" aria-hidden="true">👵</span><span class="game-tag">Action</span></span>
+            <span class="game-card-title">Granny Rooftop</span>
+            <span class="game-card-subtitle">Rooftop run with apple-vine swings and flips</span>
+          </button>
           <button class="game-card" type="button" data-game="circuitsiege" data-category="action strategy" role="listitem">
             <span class="game-card-head"><span class="game-icon" aria-hidden="true">⚡</span><span class="game-tag">Strategy</span></span>
             <span class="game-card-title">Circuit Siege</span>
@@ -323,14 +328,14 @@
         </div>
       </section>
 
-      <section id="game-screen" class="panel hidden">
-        <div class="row">
+      <section id="game-screen" class="panel hidden game-play-layout">
+        <header class="game-top-bar row">
           <h2 id="game-title">Game</h2>
           <div class="game-screen-actions">
             <button id="controls-help-button" type="button" class="icon-button" aria-label="Show controls help" title="Controls">?</button>
             <button id="back-button" type="button">Back to Arcade</button>
           </div>
-        </div>
+        </header>
 
         <div class="game-hud">
           <p id="score">Score: 0</p>
@@ -338,38 +343,42 @@
           <p id="best-hud" class="best-hud">Best: -</p>
         </div>
 
-        <div class="stage-shell">
-          <canvas id="stage-canvas" class="stage-canvas" width="480" height="480" tabindex="0" aria-label="Game stage"></canvas>
-          <div id="controls-overlay" class="controls-overlay hidden" role="dialog" aria-labelledby="controls-overlay-title">
-            <div class="controls-overlay-card">
-              <h3 id="controls-overlay-title">Controls</h3>
-              <p id="controls-overlay-hint" class="controls-overlay-hint"></p>
-              <ul class="controls-overlay-list">
-                <li><strong>Keyboard:</strong> Arrows/WASD, Space = pause, R = restart, Esc = menu</li>
-                <li><strong>Gamepad:</strong> D-pad move, A = select, B = flag, Start = pause</li>
-                <li><strong>Touch:</strong> Swipe to move, tap to select, long-press for flag/action</li>
-              </ul>
-              <button id="controls-overlay-dismiss" type="button">Got it</button>
+        <div class="game-stage-stack">
+          <div class="stage-shell">
+            <canvas id="stage-canvas" class="stage-canvas" width="480" height="480" tabindex="0" aria-label="Game stage"></canvas>
+            <div id="controls-overlay" class="controls-overlay hidden" role="dialog" aria-labelledby="controls-overlay-title">
+              <div class="controls-overlay-card">
+                <h3 id="controls-overlay-title">Controls</h3>
+                <p id="controls-overlay-hint" class="controls-overlay-hint"></p>
+                <ul class="controls-overlay-list">
+                  <li><strong>Keyboard:</strong> Arrows/WASD, Space = pause, R = restart, Esc = menu</li>
+                  <li><strong>Gamepad:</strong> D-pad move, A = select, B = flag, Start = pause</li>
+                  <li><strong>Touch:</strong> Swipe to move, tap to select, long-press for flag/action</li>
+                </ul>
+                <button id="controls-overlay-dismiss" type="button">Got it</button>
+              </div>
             </div>
           </div>
+
+          <div id="touch-controls" class="touch-controls" aria-label="Touch controls"></div>
         </div>
 
-        <details id="controls-cheat-sheet" class="controls-cheat-sheet">
-          <summary>Control reference</summary>
-          <p id="controls-game-hint" class="controls-game-hint"></p>
-          <ul class="controls-reference-list">
-            <li>Keyboard: arrows/WASD · Space pause · R restart · Esc menu</li>
-            <li>Gamepad: D-pad · A select · B flag · Start pause · Select back</li>
-            <li>Touch: swipe move · tap select · long-press flag (when available)</li>
-          </ul>
-        </details>
+        <footer class="game-bottom-bar">
+          <details id="controls-cheat-sheet" class="controls-cheat-sheet">
+            <summary>Control reference</summary>
+            <p id="controls-game-hint" class="controls-game-hint"></p>
+            <ul class="controls-reference-list">
+              <li>Keyboard: arrows/WASD · Space pause · R restart · Esc menu</li>
+              <li>Gamepad: D-pad · A select · B flag · Start pause · Select back</li>
+              <li>Touch: swipe move · tap select · long-press flag (when available)</li>
+            </ul>
+          </details>
 
-        <div class="buttons">
-          <button id="pause-button" type="button" aria-label="Pause">Pause</button>
-          <button id="restart-button" type="button" aria-label="Restart">Restart</button>
-        </div>
-
-        <div id="touch-controls" class="touch-controls" aria-label="Touch controls"></div>
+          <div class="buttons">
+            <button id="pause-button" type="button" aria-label="Pause">Pause</button>
+            <button id="restart-button" type="button" aria-label="Restart">Restart</button>
+          </div>
+        </footer>
       </section>
     </main>
 
