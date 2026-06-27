@@ -1,8 +1,9 @@
 <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-  <rect width="512" height="512" rx="96" fill="#fafbfd"/>
-  <rect x="24" y="24" width="464" height="464" rx="88" fill="#ffffff" stroke="#d0d5e0" stroke-width="8"/>
-  <circle cx="188" cy="176" r="46" fill="#2563eb" opacity="0.92"/>
-  <circle cx="324" cy="176" r="46" fill="#ef6351" opacity="0.92"/>
-  <rect x="172" y="252" width="168" height="56" rx="18" fill="#f5a623" opacity="0.95"/>
-  <circle cx="256" cy="360" r="32" fill="#2cb89a" opacity="0.95"/>
+  <rect width="512" height="512" rx="96" fill="#141414"/>
+  <rect x="32" y="32" width="448" height="448" rx="84" fill="none" stroke="#f2f2f2" stroke-width="20"/>
+  <rect x="86" y="86" width="340" height="340" rx="56" fill="#1a1a1a" stroke="#f2f2f2" stroke-width="14"/>
+  <circle cx="188" cy="170" r="44" fill="#3b82ff" stroke="#f2f2f2" stroke-width="12"/>
+  <circle cx="324" cy="170" r="44" fill="#ff5a4a" stroke="#f2f2f2" stroke-width="12"/>
+  <rect x="172" y="258" width="168" height="58" rx="14" fill="#f54e00" stroke="#f2f2f2" stroke-width="12"/>
+  <circle cx="256" cy="366" r="30" fill="#3dd6a8" stroke="#f2f2f2" stroke-width="12"/>
 </svg>
