@@ -8,6 +8,7 @@ import { createDodgerGame } from "./games/dodger.mjs";
 import { createBlockfallGame } from "./games/blockfall.mjs";
 import { createTronGame } from "./games/tron.mjs";
 import { createRunnerGame } from "./games/runner.mjs";
+import { createGrannyRunGame } from "./games/grannyrun.mjs";
 import { createOrbitGame } from "./games/orbit.mjs";
 import { create2048Game } from "./games/g2048.mjs";
 import { createTicTacToeGame } from "./games/tictactoe.mjs";
@@ -157,6 +158,9 @@ const stageCanvas = document.querySelector("#stage-canvas");
 
 const responsiveLayout = createResponsiveLayout({
   container: document.querySelector(".app"),
+  onChange: () => {
+    syncGameStageLayout();
+  },
 });
 const isTouchDevice = responsiveLayout.isTouchDevice;
 
@@ -175,6 +179,7 @@ const games = {
   blockfall: createBlockfallGame(context),
   tron: createTronGame(context),
   runner: createRunnerGame(context),
+  grannyrun: createGrannyRunGame(context),
   orbit: createOrbitGame(context),
   g2048: create2048Game(context),
   tictactoe: createTicTacToeGame(context),
@@ -376,6 +381,7 @@ initializeProfiles();
 initializeCloudSync();
 renderRecentGames();
 inputManager.startGamepadPolling();
+setActivePanel(menuEl.classList.contains("hidden") ? "profile" : "menu");
 
 function getPrimaryGamepadExists() {
   if (typeof navigator.getGamepads !== "function") {
@@ -384,6 +390,51 @@ function getPrimaryGamepadExists() {
 
   const pads = navigator.getGamepads();
   return Boolean(pads && Array.from(pads).some((pad) => pad && pad.connected));
+}
+
+function syncGameStageLayout() {
+  if (!gameScreenEl || gameScreenEl.classList.contains("hidden")) {
+    return;
+  }
+
+  const topBar = gameScreenEl.querySelector(".game-top-bar");
+  const hud = gameScreenEl.querySelector(".game-hud");
+  const bottomBar = gameScreenEl.querySelector(".game-bottom-bar");
+  const touchControls = gameScreenEl.querySelector("#touch-controls");
+  const chromeHeight =
+    (topBar?.offsetHeight ?? 0)
+    + (hud?.offsetHeight ?? 0)
+    + (bottomBar?.offsetHeight ?? 0)
+    + (touchControls?.offsetHeight ?? 0)
+    + 48;
+
+  document.documentElement.style.setProperty(
+    "--game-chrome",
+    `${Math.ceil(chromeHeight)}px`,
+  );
+}
+
+function setActivePanel(panelName) {
+  document.body.dataset.panel = panelName;
+
+  if (panelName !== "game") {
+    delete document.body.dataset.stageAspect;
+    if (gameScreenEl) {
+      delete gameScreenEl.dataset.stageAspect;
+    }
+    document.documentElement.style.removeProperty("--game-chrome");
+  }
+}
+
+function applyGameStageAspect(game) {
+  const aspect = game?.stageAspect === "landscape" ? "landscape" : "square";
+  document.body.dataset.stageAspect = aspect;
+  if (gameScreenEl) {
+    gameScreenEl.dataset.stageAspect = aspect;
+  }
+  requestAnimationFrame(() => {
+    syncGameStageLayout();
+  });
 }
 
 function startGame(gameId) {
@@ -405,6 +456,8 @@ function startGame(gameId) {
   }
   menuEl.classList.add("hidden");
   gameScreenEl.classList.remove("hidden");
+  setActivePanel("game");
+  applyGameStageAspect(activeGame);
 
   gameTitleEl.textContent = activeGame.title;
   inputManager.renderTouchControls(activeGame.controlScheme);
@@ -423,6 +476,9 @@ function startGame(gameId) {
   }
 
   stageCanvas.focus();
+  requestAnimationFrame(() => {
+    syncGameStageLayout();
+  });
 }
 
 for (const filterButton of filterButtons) {
@@ -565,6 +621,7 @@ function showMenu() {
   }
   menuEl.classList.remove("hidden");
   gameScreenEl.classList.add("hidden");
+  setActivePanel("menu");
 
   clearCanvas(context);
 
@@ -1252,6 +1309,7 @@ function showProfileGate(message = "Choose a profile.") {
   }
   menuEl.classList.add("hidden");
   gameScreenEl.classList.add("hidden");
+  setActivePanel("profile");
 
   clearCanvas(context);
   renderProfileCards();
