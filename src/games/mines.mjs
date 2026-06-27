@@ -289,6 +289,16 @@ export function createMinefieldGame(ctx) {
       }
       return false;
     },
+    getControlHint() {
+      return "Tap a cell to reveal. Long-press to flag a mine.";
+    },
+    getGridLayout() {
+      return { cols: size, rows: size, offsetX: boardX, offsetY: boardY, cellSize: cell };
+    },
+    onTapCell(col, row, meta = {}) {
+      state.cursor = { x: col, y: row };
+      return meta.longPress ? actionFlag() : actionReveal();
+    },
     togglePause() {
       if (state.status === "game_over") {
         return;

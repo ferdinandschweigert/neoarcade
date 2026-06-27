@@ -7,7 +7,7 @@
     <link rel="icon" type="image/svg+xml" href="./assets/arcade-mark.svg" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
-  <body>
+  <body class="theme-light">
     <main class="app">
       <section id="profile-gate" class="panel profile-gate hidden">
         <p class="kicker">Neo Arcade</p>
@@ -37,7 +37,7 @@
         <p class="menu-copy">Select a game to start.</p>
 
         <div class="profile-strip">
-          <span>Profile: <strong id="active-profile-name">-</strong></span>
+          <span class="profile-label">Profile: <span id="active-profile-dot" class="profile-dot" aria-hidden="true"></span><strong id="active-profile-name">-</strong></span>
           <label class="difficulty-control" for="difficulty-select">
             Difficulty
             <select id="difficulty-select">
@@ -46,34 +46,58 @@
               <option value="hard">Hard</option>
             </select>
           </label>
+          <label class="control-mode-control" for="control-mode-select">
+            Controls
+            <select id="control-mode-select">
+              <option value="auto" selected>Auto</option>
+              <option value="both">Buttons + Gestures</option>
+              <option value="buttons">Buttons</option>
+              <option value="gestures">Gestures</option>
+            </select>
+          </label>
           <button id="switch-profile-button" type="button">Switch Profile</button>
         </div>
 
-        <details class="cloud-panel">
+        <p id="app-status" class="app-status" aria-live="polite"></p>
+
+        <details class="cloud-panel" id="cloud-panel">
           <summary>Cloud Sync (automatic)</summary>
           <div class="cloud-strip" aria-label="Cloud sync">
             <label class="cloud-control" for="cloud-code-input">
               Cloud ID
               <input id="cloud-code-input" type="text" maxlength="32" placeholder="e.g. ferdinand-home" autocomplete="off" />
             </label>
-            <span id="cloud-status" class="cloud-status" aria-live="polite">Auto sync off</span>
+            <p class="cloud-help">Same Cloud ID on all devices syncs profiles and high scores.</p>
+            <span id="cloud-status" class="cloud-status" data-state="off" aria-live="polite">Local only</span>
           </div>
         </details>
 
-        <div class="promo-strip" aria-hidden="true">
-          <span>42 Playable Games</span>
+        <div id="cloud-toast" class="cloud-toast hidden" role="status" aria-live="polite"></div>
+
+        <div class="stats-row" id="stats-row">
+          <span id="game-count-label">44 Playable Games</span>
           <span>Keyboard + Touch + Gamepad</span>
           <span>Pure JS</span>
         </div>
 
-        <div class="filter-bar" aria-label="Game filters">
-          <button class="filter-button is-active" type="button" data-filter="all">All</button>
-          <button class="filter-button" type="button" data-filter="classic">Classic</button>
-          <button class="filter-button" type="button" data-filter="action">Action</button>
-          <button class="filter-button" type="button" data-filter="puzzle">Puzzle</button>
-          <button class="filter-button" type="button" data-filter="strategy">Strategy</button>
-          <button id="random-game-button" class="random-button" type="button" title="Start a random game from this filtered list">Random 🎲</button>
+        <div id="recent-games" class="recent-games hidden" aria-label="Recently played">
+          <span class="recent-label">Recent</span>
+          <div id="recent-games-list" class="recent-games-list"></div>
         </div>
+
+        <div class="menu-toolbar">
+          <input id="game-search-input" class="game-search-input" type="search" placeholder="Search games…" aria-label="Search games" autocomplete="off" />
+          <div class="filter-bar" aria-label="Game filters">
+            <button class="filter-button is-active" type="button" data-filter="all">All</button>
+            <button class="filter-button" type="button" data-filter="classic">Classic</button>
+            <button class="filter-button" type="button" data-filter="action">Action</button>
+            <button class="filter-button" type="button" data-filter="puzzle">Puzzle</button>
+            <button class="filter-button" type="button" data-filter="strategy">Strategy</button>
+            <button id="random-game-button" class="random-button" type="button" title="Start a random game from this filtered list">Random 🎲</button>
+          </div>
+        </div>
+
+        <p id="game-list-empty" class="game-list-empty hidden">No games match. Clear search or change filter.</p>
 
         <div class="game-list" role="list">
           <button class="game-card" type="button" data-game="snake" data-category="classic action" role="listitem">
@@ -302,19 +326,47 @@
       <section id="game-screen" class="panel hidden">
         <div class="row">
           <h2 id="game-title">Game</h2>
-          <button id="back-button" type="button">Back to Arcade</button>
+          <div class="game-screen-actions">
+            <button id="controls-help-button" type="button" class="icon-button" aria-label="Show controls help" title="Controls">?</button>
+            <button id="back-button" type="button">Back to Arcade</button>
+          </div>
         </div>
 
-        <p id="score">Score: 0</p>
-        <p id="status">Ready.</p>
+        <div class="game-hud">
+          <p id="score">Score: 0</p>
+          <p id="status">Ready.</p>
+          <p id="best-hud" class="best-hud">Best: -</p>
+        </div>
 
         <div class="stage-shell">
-          <canvas id="stage-canvas" class="stage-canvas" width="480" height="480" aria-label="Game stage"></canvas>
+          <canvas id="stage-canvas" class="stage-canvas" width="480" height="480" tabindex="0" aria-label="Game stage"></canvas>
+          <div id="controls-overlay" class="controls-overlay hidden" role="dialog" aria-labelledby="controls-overlay-title">
+            <div class="controls-overlay-card">
+              <h3 id="controls-overlay-title">Controls</h3>
+              <p id="controls-overlay-hint" class="controls-overlay-hint"></p>
+              <ul class="controls-overlay-list">
+                <li><strong>Keyboard:</strong> Arrows/WASD, Space = pause, R = restart, Esc = menu</li>
+                <li><strong>Gamepad:</strong> D-pad move, A = select, B = flag, Start = pause</li>
+                <li><strong>Touch:</strong> Swipe to move, tap to select, long-press for flag/action</li>
+              </ul>
+              <button id="controls-overlay-dismiss" type="button">Got it</button>
+            </div>
+          </div>
         </div>
 
+        <details id="controls-cheat-sheet" class="controls-cheat-sheet">
+          <summary>Control reference</summary>
+          <p id="controls-game-hint" class="controls-game-hint"></p>
+          <ul class="controls-reference-list">
+            <li>Keyboard: arrows/WASD · Space pause · R restart · Esc menu</li>
+            <li>Gamepad: D-pad · A select · B flag · Start pause · Select back</li>
+            <li>Touch: swipe move · tap select · long-press flag (when available)</li>
+          </ul>
+        </details>
+
         <div class="buttons">
-          <button id="pause-button" type="button">Pause</button>
-          <button id="restart-button" type="button">Restart</button>
+          <button id="pause-button" type="button" aria-label="Pause">Pause</button>
+          <button id="restart-button" type="button" aria-label="Restart">Restart</button>
         </div>
 
         <div id="touch-controls" class="touch-controls" aria-label="Touch controls"></div>

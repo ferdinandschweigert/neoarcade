@@ -318,6 +318,16 @@ export function createReversiGame(ctx) {
       }
       return false;
     },
+    getControlHint() {
+      return "Tap a square to place a disc.";
+    },
+    getGridLayout() {
+      return { cols: SIZE, rows: SIZE, offsetX: 0, offsetY: 0, cellSize: CELL };
+    },
+    onTapCell(col, row) {
+      state.cursor = { x: col, y: row };
+      return tryPlayerMove();
+    },
     togglePause() {
       if (state.status === "game_over") {
         return;
