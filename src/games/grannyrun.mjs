@@ -197,7 +197,6 @@ export function createGrannyRunGame(ctx) {
     }
 
     const anchor = state.swingAnchor;
-    const worldX = getPlayerWorldX();
     const tangent = state.swingVelocity * state.swingRadius;
     state.playerVy = -Math.cos(state.swingAngle) * tangent;
     const launchVx = Math.sin(state.swingAngle) * tangent * 0.35;
