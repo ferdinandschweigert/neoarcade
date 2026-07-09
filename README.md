@@ -21,8 +21,8 @@ Play at **[neoarcade.vercel.app](https://neoarcade.vercel.app)**.
 ## Features
 
 - Cursor-inspired full-page layout
-- Sign up / sign in for friend rankings (optional invite code)
-- Guest mode for offline local play
+- Optional sign-in via **Sign in** link (top right) for friend rankings
+- Play immediately without an account; guest scores stay on device
 - Per-game and overall leaderboards
 - Personal stats with progress visuals
 - Difficulty and control settings
