@@ -37,6 +37,60 @@ async function redisCommand(redisUrl, redisToken, command) {
   throw lastError;
 }
 
+function isRestRedisUrl(value) {
+  return typeof value === "string"
+    && value.startsWith("https://")
+    && (value.includes("upstash.io") || value.includes("redis.vercel"));
+}
+
+function tokenCandidatesForUrlKey(urlKey) {
+  const candidates = [];
+
+  if (urlKey.endsWith("REST_API_URL")) {
+    candidates.push(urlKey.replace(/REST_API_URL$/, "REST_API_TOKEN"));
+  }
+
+  if (urlKey.endsWith("REST_URL")) {
+    candidates.push(urlKey.replace(/REST_URL$/, "REST_TOKEN"));
+  }
+
+  if (urlKey.endsWith("_URL")) {
+    candidates.push(urlKey.replace(/_URL$/, "_TOKEN"));
+  }
+
+  candidates.push("UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_TOKEN");
+
+  return [...new Set(candidates.filter(Boolean))];
+}
+
+function isLikelyRedisToken(value) {
+  return typeof value === "string"
+    && value.length > 0
+    && !value.startsWith("https://")
+    && !value.startsWith("redis://");
+}
+
+function discoverRedisConfig() {
+  for (const [urlKey, redisUrl] of Object.entries(process.env)) {
+    if (!isRestRedisUrl(redisUrl)) {
+      continue;
+    }
+
+    if (/READ_ONLY/i.test(urlKey)) {
+      continue;
+    }
+
+    for (const tokenKey of tokenCandidatesForUrlKey(urlKey)) {
+      const redisToken = process.env[tokenKey];
+      if (redisToken && isLikelyRedisToken(redisToken) && !/READ_ONLY/i.test(tokenKey)) {
+        return { redisUrl, redisToken, urlKey, tokenKey };
+      }
+    }
+  }
+
+  return null;
+}
+
 function getRedisConfig() {
   const pairs = [
     [
@@ -47,14 +101,6 @@ function getRedisConfig() {
       process.env.KV_REST_API_URL,
       process.env.KV_REST_API_TOKEN,
     ],
-    [
-      process.env.KV_URL,
-      process.env.KV_REST_API_TOKEN,
-    ],
-    [
-      process.env.REDIS_URL,
-      process.env.REDIS_TOKEN,
-    ],
   ];
 
   for (const [redisUrl, redisToken] of pairs) {
@@ -63,14 +109,25 @@ function getRedisConfig() {
     }
   }
 
+  const discovered = discoverRedisConfig();
+  if (discovered) {
+    return {
+      redisUrl: discovered.redisUrl,
+      redisToken: discovered.redisToken,
+    };
+  }
+
   return null;
+}
+
+function listStorageEnvKeys() {
+  return Object.keys(process.env).filter((key) => /UPSTASH|KV_|REDIS/i.test(key)).sort();
 }
 
 function storageSetupMessage() {
   return (
-    "Storage is not configured. In Vercel: Project neoarcade → Storage → "
-    + "Create Database → Upstash Redis → connect to this project, then redeploy. "
-    + "https://vercel.com/integrations/upstash"
+    "Storage is not configured. Connect Upstash Redis to this Vercel project, "
+    + "then redeploy. https://vercel.com/integrations/upstash"
   );
 }
 
@@ -89,6 +146,7 @@ async function withRedis(handler) {
 module.exports = {
   redisCommand,
   getRedisConfig,
+  listStorageEnvKeys,
   storageSetupMessage,
   withRedis,
 };

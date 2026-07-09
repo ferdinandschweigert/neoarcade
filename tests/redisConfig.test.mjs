@@ -34,16 +34,57 @@ test("getRedisConfig reads Upstash env vars", () => {
   }
 });
 
-test("getRedisConfig falls back to Vercel KV env vars", () => {
-  const original = {
-    UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
-    UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
-    KV_REST_API_URL: process.env.KV_REST_API_URL,
-    KV_REST_API_TOKEN: process.env.KV_REST_API_TOKEN,
-  };
+test("getRedisConfig discovers prefixed Vercel storage env vars", () => {
+  const original = {};
+  const keys = [
+    "UPSTASH_REDIS_REST_URL",
+    "UPSTASH_REDIS_REST_TOKEN",
+    "KV_REST_API_URL",
+    "KV_REST_API_TOKEN",
+    "NEOARCADE_KV_REST_API_URL",
+    "NEOARCADE_KV_REST_API_TOKEN",
+  ];
 
-  delete process.env.UPSTASH_REDIS_REST_URL;
-  delete process.env.UPSTASH_REDIS_REST_TOKEN;
+  for (const key of keys) {
+    original[key] = process.env[key];
+    delete process.env[key];
+  }
+
+  process.env.NEOARCADE_KV_REST_API_URL = "https://neoarcade.upstash.io";
+  process.env.NEOARCADE_KV_REST_API_TOKEN = "token-c";
+
+  try {
+    assert.deepEqual(getRedisConfig(), {
+      redisUrl: "https://neoarcade.upstash.io",
+      redisToken: "token-c",
+    });
+  } finally {
+    for (const key of keys) {
+      if (original[key] === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = original[key];
+      }
+    }
+  }
+});
+
+test("getRedisConfig falls back to standard Vercel KV env vars", () => {
+  const keys = [
+    "UPSTASH_REDIS_REST_URL",
+    "UPSTASH_REDIS_REST_TOKEN",
+    "KV_REST_API_URL",
+    "KV_REST_API_TOKEN",
+    "NEOARCADE_KV_REST_API_URL",
+    "NEOARCADE_KV_REST_API_TOKEN",
+  ];
+  const original = {};
+
+  for (const key of keys) {
+    original[key] = process.env[key];
+    delete process.env[key];
+  }
+
   process.env.KV_REST_API_URL = "https://kv.example.upstash.io";
   process.env.KV_REST_API_TOKEN = "token-b";
 
@@ -53,11 +94,11 @@ test("getRedisConfig falls back to Vercel KV env vars", () => {
       redisToken: "token-b",
     });
   } finally {
-    for (const [key, value] of Object.entries(original)) {
-      if (value === undefined) {
+    for (const key of keys) {
+      if (original[key] === undefined) {
         delete process.env[key];
       } else {
-        process.env[key] = value;
+        process.env[key] = original[key];
       }
     }
   }
