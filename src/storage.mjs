@@ -11,6 +11,8 @@ const STORAGE_KEYS = {
   CONTROLS_HINT: "neoArcade.controlsHintSeen.v1",
   SWIPE_SENSITIVITY: "neoArcade.swipeSensitivity.v1",
   LONG_PRESS: "neoArcade.longPress.v1",
+  AUTH_TOKEN: "neoArcade.authToken.v1",
+  GUEST_MODE: "neoArcade.guestMode.v1",
 };
 
 let onStorageError = null;
