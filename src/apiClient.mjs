@@ -54,8 +54,9 @@ export async function apiFetch(path, options = {}) {
   }
 
   if (response.status === 401) {
+    const hadToken = Boolean(authToken);
     clearAuthToken();
-    if (onUnauthorized) {
+    if (hadToken && onUnauthorized) {
       onUnauthorized();
     }
   }

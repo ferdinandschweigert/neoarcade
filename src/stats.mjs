@@ -36,7 +36,7 @@ export function createStatsView(config = {}) {
   }
 
   function showGuestMessage() {
-    setMessage("Sign in to track stats and appear on friend rankings.");
+    setMessage("Sign in (top right) to track stats and appear on friend rankings.");
     if (summaryEl) {
       summaryEl.innerHTML = "";
     }

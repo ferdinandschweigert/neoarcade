@@ -1,7 +1,7 @@
 const crypto = require("crypto");
 
 const KEY_PREFIX = "neoarcade:";
-const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
+const SESSION_TTL_SECONDS = 60 * 60 * 24 * 365;
 
 const CLASSIC_GAME_IDS = [
   "snake",

@@ -12,7 +12,7 @@
       <div class="auth-card">
         <p class="kicker">Brain Break Arcade</p>
         <h1>Sign in to compete</h1>
-        <p class="auth-copy">Create an account to appear on friend rankings, or continue as guest.</p>
+        <p class="auth-copy">Optional — sign in to appear on friend rankings and sync your bests.</p>
 
         <div class="auth-tabs" role="tablist">
           <button class="auth-tab is-active" type="button" data-auth-tab="signin">Sign In</button>
@@ -39,7 +39,7 @@
           <button type="submit">Create Account</button>
         </form>
 
-        <button id="guest-button" class="guest-button" type="button">Continue as guest</button>
+        <button id="auth-close-button" class="auth-close-button" type="button">Cancel</button>
         <p id="auth-message" class="auth-message" aria-live="polite"></p>
       </div>
     </div>
@@ -54,7 +54,8 @@
           </div>
         </div>
         <div class="app-user">
-          <span id="user-label" class="user-label">Guest</span>
+          <span id="user-label" class="user-label hidden"></span>
+          <button id="signin-button" class="signin-button" type="button">Sign in</button>
           <button id="signout-button" class="signout-button hidden" type="button">Sign out</button>
         </div>
       </header>

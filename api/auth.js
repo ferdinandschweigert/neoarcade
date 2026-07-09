@@ -60,7 +60,8 @@ module.exports = async function handler(req, res) {
 };
 
 async function handleMe(req, res) {
-  const user = await resolveUser(req);
+  const token = getBearerToken(req);
+  const user = await resolveUser(req, { refreshSession: Boolean(token) });
   if (!user) {
     jsonResponse(res, 401, { error: "Not signed in." });
     return;
@@ -203,7 +204,7 @@ async function handleLogout(req, res) {
   });
 }
 
-async function resolveUser(req) {
+async function resolveUser(req, options = {}) {
   const token = getBearerToken(req);
   if (!token) {
     return null;
@@ -213,6 +214,14 @@ async function resolveUser(req) {
     const userId = await redisCommand(redisUrl, redisToken, ["GET", keys().session(token)]);
     if (!userId) {
       return null;
+    }
+
+    if (options.refreshSession) {
+      await redisCommand(redisUrl, redisToken, [
+        "EXPIRE",
+        keys().session(token),
+        SESSION_TTL_SECONDS,
+      ]);
     }
 
     const username = await redisCommand(redisUrl, redisToken, ["GET", keys().userId(userId)]);

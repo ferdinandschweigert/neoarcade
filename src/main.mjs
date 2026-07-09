@@ -108,14 +108,17 @@ const authManager = createAuthManager({
   authGateEl: document.querySelector("#auth-gate"),
   authMessageEl: document.querySelector("#auth-message"),
   userLabelEl: document.querySelector("#user-label"),
+  signInButtonEl: document.querySelector("#signin-button"),
   signOutButtonEl: document.querySelector("#signout-button"),
   signInFormEl: document.querySelector("#signin-form"),
   signUpFormEl: document.querySelector("#signup-form"),
-  guestButtonEl: document.querySelector("#guest-button"),
+  authCloseButtonEl: document.querySelector("#auth-close-button"),
   authTabButtons: document.querySelectorAll("[data-auth-tab]"),
   onAuthChange: () => {
     switchScoreProfile();
-    void statsView.refresh();
+    if (authManager.isAuthenticated()) {
+      void statsView.refresh();
+    }
   },
 });
 
@@ -292,13 +295,8 @@ switchScoreProfile();
 inputManager.startGamepadPolling();
 setActivePanel("menu");
 
-void authManager.initialize().then((result) => {
-  if (result.user) {
-    isAuthenticated = true;
-    switchScoreProfile(result.user.id);
-  } else if (result.guest) {
-    switchScoreProfile();
-  }
+void authManager.initialize().then(() => {
+  switchScoreProfile();
 });
 
 function getPrimaryGamepadExists() {
@@ -376,11 +374,6 @@ function applyGameStageAspect(game) {
 }
 
 function startGame(gameId) {
-  if (!authManager.canPlay()) {
-    authManager.showAuthGate("Sign in or continue as guest to play.");
-    return;
-  }
-
   stopLoop();
   inputManager.resetGamepadStates();
 

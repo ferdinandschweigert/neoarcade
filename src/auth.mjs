@@ -3,22 +3,15 @@ import {
   loginUser,
   logoutUser,
   registerUser,
+  clearAuthToken,
   setUnauthorizedHandler,
 } from "./apiClient.mjs";
-import {
-  safeStorageGet,
-  safeStorageRemove,
-  safeStorageSet,
-  STORAGE_KEYS,
-} from "./storage.mjs";
-
-const GUEST_KEY = STORAGE_KEYS.GUEST_MODE;
 
 let currentUser = null;
-let isGuest = safeStorageGet(GUEST_KEY) === "1";
 let authGateEl = null;
 let authMessageEl = null;
 let userLabelEl = null;
+let signInButtonEl = null;
 let signOutButtonEl = null;
 let onAuthChange = null;
 
@@ -26,15 +19,26 @@ export function createAuthManager(config = {}) {
   authGateEl = config.authGateEl || null;
   authMessageEl = config.authMessageEl || null;
   userLabelEl = config.userLabelEl || null;
+  signInButtonEl = config.signInButtonEl || null;
   signOutButtonEl = config.signOutButtonEl || null;
   onAuthChange = config.onAuthChange || null;
 
   wireAuthForms(config);
   setUnauthorizedHandler(() => {
+    const wasSignedIn = Boolean(currentUser);
     currentUser = null;
+    updateUserChrome();
     notifyAuthChange();
-    showAuthGate("Session expired. Sign in again.");
+    if (wasSignedIn) {
+      showAuthGate("Session expired. Sign in again.");
+    }
   });
+
+  if (signInButtonEl) {
+    signInButtonEl.addEventListener("click", () => {
+      showAuthGate();
+    });
+  }
 
   if (signOutButtonEl) {
     signOutButtonEl.addEventListener("click", () => {
@@ -45,47 +49,47 @@ export function createAuthManager(config = {}) {
   return {
     initialize,
     getCurrentUser: () => currentUser,
-    isGuest: () => isGuest,
+    isGuest: () => !currentUser,
     isAuthenticated: () => Boolean(currentUser),
-    canPlay: () => Boolean(currentUser || isGuest),
+    canPlay: () => true,
     showAuthGate,
     hideAuthGate,
     handleSignOut,
-    continueAsGuest,
   };
 }
 
 async function initialize() {
-  if (isGuest) {
-    updateUserChrome();
-    hideAuthGate();
-    notifyAuthChange();
-    return { guest: true };
-  }
-
   currentUser = await fetchCurrentUser();
   updateUserChrome();
-
-  if (currentUser) {
-    hideAuthGate();
-    notifyAuthChange();
-    return { user: currentUser };
-  }
-
-  showAuthGate();
-  return { user: null };
+  hideAuthGate();
+  notifyAuthChange();
+  return { user: currentUser };
 }
 
 function wireAuthForms(config) {
   const signInForm = config.signInFormEl;
   const signUpForm = config.signUpFormEl;
-  const guestButton = config.guestButtonEl;
+  const closeButton = config.authCloseButtonEl;
   const tabButtons = config.authTabButtons || [];
 
   for (const button of tabButtons) {
     button.addEventListener("click", () => {
       const tab = button.dataset.authTab;
       setAuthTab(tab);
+    });
+  }
+
+  if (closeButton) {
+    closeButton.addEventListener("click", () => {
+      hideAuthGate();
+    });
+  }
+
+  if (authGateEl) {
+    authGateEl.addEventListener("click", (event) => {
+      if (event.target === authGateEl) {
+        hideAuthGate();
+      }
     });
   }
 
@@ -98,8 +102,6 @@ function wireAuthForms(config) {
           username: String(formData.get("username") || ""),
           password: String(formData.get("password") || ""),
         });
-        isGuest = false;
-        safeStorageRemove(GUEST_KEY);
         setAuthMessage("");
         hideAuthGate();
         updateUserChrome();
@@ -121,8 +123,6 @@ function wireAuthForms(config) {
           displayName: String(formData.get("display_name") || ""),
           inviteCode: String(formData.get("invite_code") || ""),
         });
-        isGuest = false;
-        safeStorageRemove(GUEST_KEY);
         setAuthMessage("");
         hideAuthGate();
         updateUserChrome();
@@ -132,31 +132,14 @@ function wireAuthForms(config) {
       }
     });
   }
-
-  if (guestButton) {
-    guestButton.addEventListener("click", () => {
-      continueAsGuest();
-    });
-  }
-}
-
-function continueAsGuest() {
-  isGuest = true;
-  currentUser = null;
-  safeStorageSet(GUEST_KEY, "1");
-  setAuthMessage("");
-  hideAuthGate();
-  updateUserChrome();
-  notifyAuthChange();
 }
 
 async function handleSignOut() {
   await logoutUser();
   currentUser = null;
-  isGuest = false;
-  safeStorageRemove(GUEST_KEY);
+  clearAuthToken();
   updateUserChrome();
-  showAuthGate("Signed out.");
+  hideAuthGate();
   notifyAuthChange();
 }
 
@@ -164,15 +147,14 @@ function showAuthGate(message = "") {
   if (authGateEl) {
     authGateEl.classList.remove("hidden");
   }
-  if (message) {
-    setAuthMessage(message);
-  }
+  setAuthMessage(message);
 }
 
 function hideAuthGate() {
   if (authGateEl) {
     authGateEl.classList.add("hidden");
   }
+  setAuthMessage("");
 }
 
 function setAuthTab(tab) {
@@ -199,13 +181,14 @@ function setAuthMessage(message, isError = false) {
 
 function updateUserChrome() {
   if (userLabelEl) {
-    if (currentUser) {
-      userLabelEl.textContent = currentUser.displayName || currentUser.username;
-    } else if (isGuest) {
-      userLabelEl.textContent = "Guest";
-    } else {
-      userLabelEl.textContent = "Not signed in";
-    }
+    userLabelEl.textContent = currentUser
+      ? (currentUser.displayName || currentUser.username)
+      : "";
+    userLabelEl.classList.toggle("hidden", !currentUser);
+  }
+
+  if (signInButtonEl) {
+    signInButtonEl.classList.toggle("hidden", Boolean(currentUser));
   }
 
   if (signOutButtonEl) {
@@ -215,6 +198,6 @@ function updateUserChrome() {
 
 function notifyAuthChange() {
   if (onAuthChange) {
-    onAuthChange({ user: currentUser, guest: isGuest });
+    onAuthChange({ user: currentUser, guest: !currentUser });
   }
 }

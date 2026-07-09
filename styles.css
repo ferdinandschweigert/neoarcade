@@ -485,7 +485,21 @@ button:hover {
   border-radius: var(--radius-sm);
 }
 
-.guest-button {
+.signin-button,
+.signout-button {
+  font-size: 0.82rem;
+}
+
+.signin-button {
+  background: transparent;
+  border: none;
+  color: var(--blue);
+  padding: 0.35rem 0.5rem;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.auth-close-button {
   width: 100%;
   margin-top: 0.75rem;
   background: transparent;
