@@ -38,21 +38,48 @@ async function redisCommand(redisUrl, redisToken, command) {
 }
 
 function getRedisConfig() {
-  const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
-  const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  const pairs = [
+    [
+      process.env.UPSTASH_REDIS_REST_URL,
+      process.env.UPSTASH_REDIS_REST_TOKEN,
+    ],
+    [
+      process.env.KV_REST_API_URL,
+      process.env.KV_REST_API_TOKEN,
+    ],
+    [
+      process.env.KV_URL,
+      process.env.KV_REST_API_TOKEN,
+    ],
+    [
+      process.env.REDIS_URL,
+      process.env.REDIS_TOKEN,
+    ],
+  ];
 
-  if (!redisUrl || !redisToken) {
-    return null;
+  for (const [redisUrl, redisToken] of pairs) {
+    if (redisUrl && redisToken) {
+      return { redisUrl, redisToken };
+    }
   }
 
-  return { redisUrl, redisToken };
+  return null;
+}
+
+function storageSetupMessage() {
+  return (
+    "Storage is not configured. In Vercel: Project neoarcade → Storage → "
+    + "Create Database → Upstash Redis → connect to this project, then redeploy. "
+    + "https://vercel.com/integrations/upstash"
+  );
 }
 
 async function withRedis(handler) {
   const config = getRedisConfig();
   if (!config) {
-    const error = new Error("Storage is not configured.");
+    const error = new Error(storageSetupMessage());
     error.statusCode = 500;
+    error.code = "STORAGE_NOT_CONFIGURED";
     throw error;
   }
 
@@ -62,5 +89,6 @@ async function withRedis(handler) {
 module.exports = {
   redisCommand,
   getRedisConfig,
+  storageSetupMessage,
   withRedis,
 };

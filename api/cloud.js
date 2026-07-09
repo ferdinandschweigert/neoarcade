@@ -10,7 +10,8 @@ module.exports = async function handler(req, res) {
 
   if (!config) {
     res.status(500).json({
-      error: "Cloud storage is not configured. Add UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.",
+      error: "Cloud storage is not configured. Connect Upstash Redis in Vercel Storage, then redeploy.",
+      setupUrl: "https://vercel.com/integrations/upstash",
     });
     return;
   }

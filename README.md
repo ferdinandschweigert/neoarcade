@@ -56,10 +56,18 @@ npx vercel dev
 2. Framework preset: **Other**
 3. Build command: leave empty
 4. Output directory: `.`
-5. Add environment variables:
-   - `UPSTASH_REDIS_REST_URL`
-   - `UPSTASH_REDIS_REST_TOKEN`
-   - `NEO_ARCADE_INVITE_CODE` (optional — gates friend registration)
+## Vercel storage (required for sign-in and rankings)
+
+The API needs **Upstash Redis** connected to the Vercel project:
+
+1. Open [Upstash for Vercel](https://vercel.com/integrations/upstash)
+2. Click **Install** and select the **neoarcade** project
+3. Create a free Redis database (any region) and connect it
+4. Redeploy (or wait for the next push to `main`)
+
+Vercel injects `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` or `KV_REST_API_URL` / `KV_REST_API_TOKEN`. The app reads both naming conventions.
+
+Without storage, games still work locally; sign-in and leaderboards return a setup error.
 
 Push to `main` to auto-deploy.
 
