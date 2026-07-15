@@ -21,7 +21,7 @@ export function createBlockfallGame(ctx) {
 
   const shapes = [
     {
-      color: "#4fa3ff",
+      color: "#20c7e5",
       cells: [
         { x: 0, y: 1 },
         { x: 1, y: 1 },
@@ -30,7 +30,7 @@ export function createBlockfallGame(ctx) {
       ],
     },
     {
-      color: "#f97316",
+      color: "#62a7ff",
       cells: [
         { x: 0, y: 0 },
         { x: 0, y: 1 },
@@ -39,7 +39,7 @@ export function createBlockfallGame(ctx) {
       ],
     },
     {
-      color: "#ef4444",
+      color: "#ff5d73",
       cells: [
         { x: 2, y: 0 },
         { x: 0, y: 1 },
@@ -48,7 +48,7 @@ export function createBlockfallGame(ctx) {
       ],
     },
     {
-      color: "#facc15",
+      color: "#ffd34f",
       cells: [
         { x: 1, y: 0 },
         { x: 2, y: 0 },
@@ -57,7 +57,7 @@ export function createBlockfallGame(ctx) {
       ],
     },
     {
-      color: "#22c55e",
+      color: "#7bd66f",
       cells: [
         { x: 1, y: 0 },
         { x: 2, y: 0 },
@@ -66,7 +66,7 @@ export function createBlockfallGame(ctx) {
       ],
     },
     {
-      color: "#a855f7",
+      color: "#9b78f6",
       cells: [
         { x: 1, y: 0 },
         { x: 0, y: 1 },
@@ -75,7 +75,7 @@ export function createBlockfallGame(ctx) {
       ],
     },
     {
-      color: "#06b6d4",
+      color: "#ff8b4a",
       cells: [
         { x: 0, y: 0 },
         { x: 1, y: 0 },
@@ -302,6 +302,8 @@ export function createBlockfallGame(ctx) {
     ctx.globalAlpha = alpha;
     ctx.fillStyle = color;
     ctx.fillRect(px + 1, py + 1, cell - 2, cell - 2);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.38)";
+    ctx.fillRect(px + 3, py + 3, cell - 6, 3);
     ctx.globalAlpha = 1;
   }
 
@@ -343,14 +345,14 @@ export function createBlockfallGame(ctx) {
       stepFall();
     },
     render() {
-      clearCanvas(ctx, "#efece4");
+      clearCanvas(ctx, "#f8fbfd");
 
-      ctx.fillStyle = "#161616";
+      ctx.fillStyle = "#91a3b3";
       ctx.fillRect(boardX - 4, boardY - 4, boardWidth * cell + 8, boardHeight * cell + 8);
-      ctx.fillStyle = "#0f1115";
+      ctx.fillStyle = "#eef4f8";
       ctx.fillRect(boardX, boardY, boardWidth * cell, boardHeight * cell);
 
-      ctx.strokeStyle = "rgba(255,255,255,0.08)";
+      ctx.strokeStyle = "rgba(96, 114, 134, 0.2)";
       ctx.lineWidth = 1;
       for (let y = 1; y < boardHeight; y += 1) {
         const py = boardY + y * cell + 0.5;
@@ -380,7 +382,7 @@ export function createBlockfallGame(ctx) {
       }
       drawPiece(state.current);
 
-      ctx.fillStyle = "#151515";
+      ctx.fillStyle = "#1b2533";
       ctx.font = "700 18px Arial";
       ctx.fillText("Next", scoreX, scoreY + 14);
       ctx.fillText("Level", scoreX, scoreY + 150);
@@ -389,8 +391,11 @@ export function createBlockfallGame(ctx) {
 
       const previewX = scoreX + 2;
       const previewY = scoreY + 36;
-      ctx.fillStyle = "#111";
+      ctx.fillStyle = "#ffffff";
       ctx.fillRect(previewX, previewY, 130, 90);
+      ctx.strokeStyle = "#b9c7d2";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(previewX, previewY, 130, 90);
 
       const previewPiece = {
         ...state.next,
@@ -408,7 +413,7 @@ export function createBlockfallGame(ctx) {
         ctx.fillRect(px, py, 18, 18);
       }
 
-      ctx.fillStyle = "#151515";
+      ctx.fillStyle = "#1b2533";
       ctx.font = "700 22px Arial";
       ctx.fillText(String(state.level), scoreX, scoreY + 180);
       ctx.fillText(String(state.lines), scoreX, scoreY + 236);

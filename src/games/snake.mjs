@@ -18,11 +18,11 @@ import {
 
 export function createSnakeGame(ctx) {
   const colors = {
-    background: "#f0f2f6",
-    grid: "#d8dbe1",
-    snakeBody: "#1f7a3f",
-    snakeHead: "#156331",
-    food: "#d94d4d",
+    background: "#f8fbfd",
+    grid: "#dce8ef",
+    snakeBody: "#7bd66f",
+    snakeHead: "#20c7e5",
+    food: "#ff5d73",
   };
 
   const difficultySettings = {

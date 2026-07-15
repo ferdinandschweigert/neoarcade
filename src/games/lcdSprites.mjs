@@ -9,7 +9,7 @@ export function createLcdSpriteAtlas(source) {
   return image;
 }
 
-export function drawLcdSprite(ctx, atlas, column, row, x, y, width, height) {
+export function drawLcdSprite(ctx, atlas, column, row, x, y, width, height, filter = "none") {
   if (!atlas?.complete || !atlas.naturalWidth || !atlas.naturalHeight) {
     return false;
   }
@@ -17,7 +17,9 @@ export function drawLcdSprite(ctx, atlas, column, row, x, y, width, height) {
   const sourceWidth = atlas.naturalWidth / 2;
   const sourceHeight = atlas.naturalHeight / 2;
   const smoothing = ctx.imageSmoothingEnabled;
+  const previousFilter = ctx.filter;
   ctx.imageSmoothingEnabled = false;
+  ctx.filter = filter;
   ctx.drawImage(
     atlas,
     column * sourceWidth,
@@ -30,5 +32,6 @@ export function drawLcdSprite(ctx, atlas, column, row, x, y, width, height) {
     height,
   );
   ctx.imageSmoothingEnabled = smoothing;
+  ctx.filter = previousFilter;
   return true;
 }

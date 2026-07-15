@@ -237,9 +237,9 @@ export function createAsteroidsGame(ctx) {
       }
     },
     render() {
-      clearCanvas(ctx, "#050913");
+      clearCanvas(ctx, "#f8fbfd");
 
-      ctx.fillStyle = "rgba(146, 187, 255, 0.35)";
+      ctx.fillStyle = "rgba(32, 199, 229, 0.28)";
       for (let i = 0; i < 70; i += 1) {
         const x = (i * 67) % CANVAS_SIZE;
         const y = (i * 41 + state.wave * 17) % CANVAS_SIZE;
@@ -247,14 +247,14 @@ export function createAsteroidsGame(ctx) {
       }
 
       for (const rock of state.rocks) {
-        ctx.strokeStyle = "#89a0c2";
+        ctx.strokeStyle = "#607286";
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(rock.x, rock.y, rock.radius, 0, Math.PI * 2);
         ctx.stroke();
       }
 
-      ctx.fillStyle = "#f8fafc";
+      ctx.fillStyle = "#ff5d73";
       for (const bullet of state.bullets) {
         drawDot(ctx, bullet.x, bullet.y, 2.2);
       }
@@ -264,7 +264,7 @@ export function createAsteroidsGame(ctx) {
         ctx.save();
         ctx.translate(state.ship.x, state.ship.y);
         ctx.rotate(state.ship.angle);
-        ctx.strokeStyle = "#f4d20b";
+        ctx.strokeStyle = "#20c7e5";
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(13, 0);
@@ -275,7 +275,7 @@ export function createAsteroidsGame(ctx) {
         ctx.stroke();
 
         if (state.input.thrust) {
-          ctx.strokeStyle = "#ef4444";
+          ctx.strokeStyle = "#ff8b4a";
           ctx.beginPath();
           ctx.moveTo(-9, -3);
           ctx.lineTo(-15 - Math.random() * 4, 0);

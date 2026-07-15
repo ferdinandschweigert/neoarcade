@@ -192,7 +192,7 @@ export function createLabyrinthGame(ctx) {
       }
     },
     render() {
-      clearCanvas(ctx, "#a5b46a");
+      clearCanvas(ctx, "#f8fbfd");
 
       for (let y = 0; y < gridSize; y += 1) {
         for (let x = 0; x < gridSize; x += 1) {
@@ -200,14 +200,14 @@ export function createLabyrinthGame(ctx) {
           const py = y * cell;
 
           if (walls.has(`${x},${y}`)) {
-            ctx.fillStyle = "#263417";
+            ctx.fillStyle = "#283043";
             ctx.fillRect(px, py, cell, cell);
-            ctx.fillStyle = "#354622";
+            ctx.fillStyle = "#20c7e5";
             ctx.fillRect(px + 3, py + 3, cell - 6, 3);
             continue;
           }
 
-          ctx.fillStyle = (x + y) % 2 === 0 ? "#899751" : "#7b8a48";
+          ctx.fillStyle = (x + y) % 2 === 0 ? "#ffffff" : "#edf4f8";
           ctx.fillRect(px, py, cell, cell);
         }
       }
@@ -225,9 +225,10 @@ export function createLabyrinthGame(ctx) {
           y * cell - cell * 0.18,
           cell * 1.36,
           cell * 1.36,
+          "hue-rotate(-25deg) saturate(2.4) brightness(1.18)",
         );
         if (!drawn) {
-          ctx.fillStyle = "#18210f";
+          ctx.fillStyle = "#ffd34f";
           drawDiamond(ctx, x * cell + cell / 2, y * cell + cell / 2, cell * 0.27);
         }
       }
@@ -241,9 +242,10 @@ export function createLabyrinthGame(ctx) {
         exit.y * cell - cell * 0.18,
         cell * 1.36,
         cell * 1.36,
+        "hue-rotate(35deg) saturate(2) brightness(1.15)",
       );
       if (!exitDrawn) {
-        ctx.fillStyle = "#65783a";
+        ctx.fillStyle = "#7bd66f";
         ctx.fillRect(exit.x * cell + 6, exit.y * cell + 6, cell - 12, cell - 12);
       }
 
@@ -256,9 +258,10 @@ export function createLabyrinthGame(ctx) {
         state.player.y * cell - cell * 0.2,
         cell * 1.4,
         cell * 1.4,
+        "hue-rotate(115deg) saturate(2.1) brightness(1.12)",
       );
       if (!playerDrawn) {
-        ctx.fillStyle = "#a5b46a";
+        ctx.fillStyle = "#20c7e5";
         drawDot(ctx, state.player.x * cell + cell / 2, state.player.y * cell + cell / 2, cell * 0.31);
       }
 
@@ -271,9 +274,10 @@ export function createLabyrinthGame(ctx) {
         state.guard.y * cell - cell * 0.2,
         cell * 1.4,
         cell * 1.4,
+        "hue-rotate(-85deg) saturate(2.2) brightness(1.12)",
       );
       if (!guardDrawn) {
-        ctx.fillStyle = "#18210f";
+        ctx.fillStyle = "#ff5d73";
         drawDot(ctx, state.guard.x * cell + cell / 2, state.guard.y * cell + cell / 2, cell * 0.31);
       }
     },

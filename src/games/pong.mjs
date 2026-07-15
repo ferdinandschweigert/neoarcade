@@ -188,9 +188,9 @@ export function createPongGame(ctx) {
       }
     },
     render() {
-      clearCanvas(ctx, "#10161d");
+      clearCanvas(ctx, "#f8fbfd");
 
-      ctx.strokeStyle = "#2a3342";
+      ctx.strokeStyle = "#c7d5df";
       ctx.lineWidth = 2;
       ctx.setLineDash([8, 10]);
       ctx.beginPath();
@@ -199,10 +199,12 @@ export function createPongGame(ctx) {
       ctx.stroke();
       ctx.setLineDash([]);
 
-      ctx.fillStyle = "#ffffff";
+      ctx.fillStyle = "#20c7e5";
       ctx.fillRect(paddleMargin, state.playerY, paddleWidth, paddleHeight);
+      ctx.fillStyle = "#ff5d73";
       ctx.fillRect(CANVAS_SIZE - paddleMargin - paddleWidth, state.cpuY, paddleWidth, paddleHeight);
 
+      ctx.fillStyle = "#ffd34f";
       drawDot(ctx, state.ballX, state.ballY, ballRadius);
     },
     onKeyDown(key) {

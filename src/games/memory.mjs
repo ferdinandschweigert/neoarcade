@@ -14,6 +14,16 @@ export function createMemoryMatchGame(ctx) {
   const cell = 98;
   const boardX = 44;
   const boardY = 44;
+  const cardColors = [
+    "#20c7e5",
+    "#ff5d73",
+    "#ffd34f",
+    "#7bd66f",
+    "#9b78f6",
+    "#62a7ff",
+    "#ff8b4a",
+    "#58d7b3",
+  ];
 
   let bestMoves = Infinity;
   let state = createState();
@@ -136,7 +146,7 @@ export function createMemoryMatchGame(ctx) {
       }
     },
     render() {
-      clearCanvas(ctx, "#ece9e1");
+      clearCanvas(ctx, "#f8fbfd");
 
       for (let index = 0; index < state.cards.length; index += 1) {
         const row = Math.floor(index / size);
@@ -145,11 +155,13 @@ export function createMemoryMatchGame(ctx) {
         const y = boardY + row * cell;
         const faceUp = state.revealed.has(index) || state.matched.has(index);
 
-        ctx.fillStyle = faceUp ? "#f4d20b" : "#1f232a";
+        ctx.fillStyle = faceUp
+          ? cardColors[(state.cards[index] - 1) % cardColors.length]
+          : "#283043";
         ctx.fillRect(x + 5, y + 5, cell - 10, cell - 10);
 
         if (faceUp) {
-          ctx.fillStyle = "#111";
+          ctx.fillStyle = "#1b2533";
           ctx.font = "900 36px Arial";
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
@@ -157,7 +169,7 @@ export function createMemoryMatchGame(ctx) {
         }
 
         if (state.cursor === index && state.status !== "game_over") {
-          ctx.strokeStyle = "#1e61ff";
+          ctx.strokeStyle = "#ffd34f";
           ctx.lineWidth = 4;
           ctx.strokeRect(x + 9, y + 9, cell - 18, cell - 18);
         }

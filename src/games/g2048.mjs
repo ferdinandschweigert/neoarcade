@@ -17,18 +17,18 @@ export function create2048Game(ctx) {
   const boardY = 58;
   const tileSize = (boardPixels - tileGap * (size + 1)) / size;
   const tileColors = {
-    0: "#d4ccc0",
-    2: "#eee4da",
-    4: "#ede0c8",
-    8: "#f2b179",
-    16: "#f59563",
-    32: "#f67c5f",
-    64: "#f65e3b",
-    128: "#edcf72",
-    256: "#edcc61",
-    512: "#edc850",
-    1024: "#edc53f",
-    2048: "#edc22e",
+    0: "#ffffff",
+    2: "#dff7fc",
+    4: "#dce8ff",
+    8: "#ffd34f",
+    16: "#ff9d62",
+    32: "#ff7184",
+    64: "#ff5d73",
+    128: "#7bd66f",
+    256: "#20c7e5",
+    512: "#62a7ff",
+    1024: "#9b78f6",
+    2048: "#283043",
   };
 
   let bestScore = 0;
@@ -192,9 +192,9 @@ export function create2048Game(ctx) {
       // Intentional no-op. This game advances on input.
     },
     render() {
-      clearCanvas(ctx, "#efece4");
+      clearCanvas(ctx, "#f8fbfd");
 
-      ctx.fillStyle = "#b6ab9d";
+      ctx.fillStyle = "#d8e3ea";
       ctx.fillRect(boardX, boardY, boardPixels, boardPixels);
 
       for (let y = 0; y < size; y += 1) {
@@ -202,7 +202,7 @@ export function create2048Game(ctx) {
           const value = state.board[y][x];
           const px = boardX + tileGap + x * (tileSize + tileGap);
           const py = boardY + tileGap + y * (tileSize + tileGap);
-          const color = tileColors[value] || "#3c3a32";
+          const color = tileColors[value] || "#283043";
 
           ctx.fillStyle = color;
           ctx.fillRect(px, py, tileSize, tileSize);
@@ -211,7 +211,7 @@ export function create2048Game(ctx) {
             continue;
           }
 
-          ctx.fillStyle = value <= 4 ? "#675f56" : "#f9f6f2";
+          ctx.fillStyle = value <= 4 || value === 8 || value === 128 ? "#1b2533" : "#ffffff";
           ctx.font = value >= 1024 ? "700 22px Arial" : "700 30px Arial";
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";

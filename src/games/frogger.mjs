@@ -142,13 +142,13 @@ export function createFroggerGame(ctx) {
       }
     },
     render() {
-      clearCanvas(ctx, "#edf0e6");
+      clearCanvas(ctx, "#f8fbfd");
 
       for (let y = 0; y < gridH; y += 1) {
         if (y === 0 || y === gridH - 1) {
-          ctx.fillStyle = "#96c071";
+          ctx.fillStyle = "#c9f2c4";
         } else {
-          ctx.fillStyle = laneRows.includes(y) ? "#1f1f23" : "#5f7488";
+          ctx.fillStyle = laneRows.includes(y) ? "#dce8ef" : "#dcd5fb";
         }
         ctx.fillRect(0, y * cell, CANVAS_SIZE, cell);
       }
@@ -158,14 +158,14 @@ export function createFroggerGame(ctx) {
           const x = car.x * cell;
           const y = lane.row * cell + 6;
           const width = car.length * cell;
-          ctx.fillStyle = lane.row % 2 === 0 ? "#e24739" : "#f4d20b";
+          ctx.fillStyle = lane.row % 2 === 0 ? "#ff5d73" : "#ffd34f";
           ctx.fillRect(x, y, width, cell - 12);
         }
       }
 
       const px = state.player.x * cell + cell / 2;
       const py = state.player.y * cell + cell / 2;
-      ctx.fillStyle = "#1e61ff";
+      ctx.fillStyle = "#20c7e5";
       drawDot(ctx, px, py, cell * 0.32);
       ctx.fillStyle = "#ffffff";
       drawDot(ctx, px - 6, py - 4, 2.5);

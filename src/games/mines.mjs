@@ -194,7 +194,7 @@ export function createMinefieldGame(ctx) {
       // Turn-based puzzle.
     },
     render() {
-      clearCanvas(ctx, "#efece4");
+      clearCanvas(ctx, "#f8fbfd");
 
       const numberColors = [
         "#111",
@@ -217,11 +217,15 @@ export function createMinefieldGame(ctx) {
           const hasMine = state.mines.has(id);
           const showMine = state.status === "game_over" && !state.won && hasMine;
 
-          ctx.fillStyle = isRevealed ? "#ddd6c7" : "#5c6a7a";
+          ctx.fillStyle = isRevealed
+            ? "#ffffff"
+            : (x + y) % 2 === 0
+              ? "#20c7e5"
+              : "#9b78f6";
           ctx.fillRect(px + 2, py + 2, cell - 4, cell - 4);
 
           if (showMine) {
-            ctx.fillStyle = "#e24739";
+            ctx.fillStyle = "#ff5d73";
             drawDot(ctx, px + cell / 2, py + cell / 2, 12);
           } else if (isRevealed) {
             const adjacent = adjacentCount(x, y);
@@ -233,9 +237,9 @@ export function createMinefieldGame(ctx) {
               ctx.fillText(String(adjacent), px + cell / 2, py + cell / 2 + 2);
             }
           } else if (state.flags.has(id)) {
-            ctx.fillStyle = "#f4d20b";
+            ctx.fillStyle = "#ffd34f";
             ctx.fillRect(px + 16, py + 10, 6, 28);
-            ctx.fillStyle = "#111";
+            ctx.fillStyle = "#283043";
             ctx.beginPath();
             ctx.moveTo(px + 22, py + 10);
             ctx.lineTo(px + 36, py + 16);
@@ -245,7 +249,7 @@ export function createMinefieldGame(ctx) {
           }
 
           if (state.cursor.x === x && state.cursor.y === y && state.status !== "game_over") {
-            ctx.strokeStyle = "#1e61ff";
+            ctx.strokeStyle = "#ffd34f";
             ctx.lineWidth = 3;
             ctx.strokeRect(px + 6, py + 6, cell - 12, cell - 12);
           }

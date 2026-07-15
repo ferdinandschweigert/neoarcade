@@ -263,9 +263,9 @@ export function createInvadersGame(ctx) {
       }
     },
     render() {
-      clearCanvas(ctx, "#0f1722");
+      clearCanvas(ctx, "#f8fbfd");
 
-      ctx.fillStyle = "#131f2d";
+      ctx.fillStyle = "#e5edf3";
       ctx.fillRect(0, CANVAS_SIZE - 56, CANVAS_SIZE, 56);
 
       for (const enemy of state.enemies) {
@@ -273,23 +273,27 @@ export function createInvadersGame(ctx) {
           continue;
         }
 
-        ctx.fillStyle = enemy.row % 2 === 0 ? "#47c3a2" : "#f4d20b";
+        ctx.fillStyle = enemy.row % 3 === 0
+          ? "#7bd66f"
+          : enemy.row % 3 === 1
+            ? "#9b78f6"
+            : "#ffd34f";
         ctx.fillRect(enemy.x, enemy.y, enemyWidth, enemyHeight);
-        ctx.fillStyle = "#0f1722";
+        ctx.fillStyle = "#ffffff";
         ctx.fillRect(enemy.x + 4, enemy.y + 4, enemyWidth - 8, 4);
       }
 
-      ctx.fillStyle = "#1e61ff";
+      ctx.fillStyle = "#20c7e5";
       ctx.fillRect(state.playerX, playerY, 36, 16);
       ctx.fillStyle = "#dbe7ff";
       drawDot(ctx, state.playerX + 18, playerY + 5, 4);
 
-      ctx.fillStyle = "#f8fafc";
+      ctx.fillStyle = "#283043";
       for (const shot of state.shots) {
         ctx.fillRect(shot.x - 1.5, shot.y - 8, 3, 10);
       }
 
-      ctx.fillStyle = "#e24739";
+      ctx.fillStyle = "#ff5d73";
       for (const shot of state.enemyShots) {
         ctx.fillRect(shot.x - 1.5, shot.y, 3, 9);
       }

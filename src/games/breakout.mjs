@@ -251,7 +251,7 @@ export function createBreakoutGame(ctx) {
       }
     },
     render() {
-      clearCanvas(ctx, "#10161d");
+      clearCanvas(ctx, "#f8fbfd");
 
       for (const brick of state.bricks) {
         const paletteIndex = (brick.maxHp - 1 + state.level - 1) % brickPalette.length;
@@ -267,8 +267,9 @@ export function createBreakoutGame(ctx) {
         }
       }
 
-      ctx.fillStyle = "#f8fafc";
+      ctx.fillStyle = "#283043";
       ctx.fillRect(state.paddleX, paddleY, state.paddleWidth, paddleHeight);
+      ctx.fillStyle = "#20c7e5";
       drawDot(ctx, state.ballX, state.ballY, ballRadius);
     },
     onKeyDown(key) {

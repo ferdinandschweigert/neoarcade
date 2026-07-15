@@ -209,11 +209,11 @@ export function createPacmanGame(ctx) {
       }
     },
     render() {
-      clearCanvas(ctx, "#070f1b");
+      clearCanvas(ctx, "#f8fbfd");
 
       const cellSize = CANVAS_SIZE / gridSize;
 
-      ctx.fillStyle = "#1d4ed8";
+      ctx.fillStyle = "#20c7e5";
       for (const wallKey of state.walls) {
         const [xText, yText] = wallKey.split(",");
         const x = Number(xText);
@@ -226,7 +226,7 @@ export function createPacmanGame(ctx) {
         );
       }
 
-      ctx.fillStyle = "#e5e7eb";
+      ctx.fillStyle = "#607286";
       for (const dotKey of state.dots) {
         const [xText, yText] = dotKey.split(",");
         const x = Number(xText);
@@ -239,7 +239,7 @@ export function createPacmanGame(ctx) {
         );
       }
 
-      ctx.fillStyle = "#facc15";
+      ctx.fillStyle = "#ffd34f";
       drawDot(
         ctx,
         state.player.x * cellSize + cellSize / 2,
@@ -251,7 +251,7 @@ export function createPacmanGame(ctx) {
       const ghostY = state.ghost.y * cellSize + cellSize / 2;
       const ghostRadius = cellSize * 0.34;
 
-      ctx.fillStyle = "#ef4444";
+      ctx.fillStyle = "#ff5d73";
       drawDot(ctx, ghostX, ghostY, ghostRadius);
 
       ctx.fillStyle = "#ffffff";
