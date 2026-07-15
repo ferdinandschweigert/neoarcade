@@ -811,9 +811,17 @@ body[data-panel="game"] .app {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
   gap: 0.45rem;
+  min-width: 0;
   min-height: 0;
   height: 100%;
   padding: clamp(0.7rem, 1.6vw, 1.1rem);
+}
+
+.game-top-bar,
+.game-hud,
+.game-bottom-bar {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .row {
@@ -826,6 +834,8 @@ body[data-panel="game"] .app {
 
 .game-screen-actions {
   display: flex;
+  min-width: 0;
+  max-width: 100%;
   align-items: center;
   gap: 0.45rem;
 }
@@ -879,7 +889,9 @@ body[data-panel="game"] .app {
 
 .game-stage-stack {
   display: flex;
+  min-width: 0;
   min-height: 0;
+  max-width: 100%;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -904,7 +916,7 @@ body[data-panel="game"] .app {
 body[data-panel="game"] .stage-shell {
   --stage-fit: min(
     100%,
-    calc(100dvh - var(--game-chrome, 240px)),
+    var(--game-stage-space, calc(100dvh - var(--game-chrome, 240px))),
     calc(100vw - 5rem)
   );
   width: var(--stage-fit);
@@ -913,7 +925,11 @@ body[data-panel="game"] .stage-shell {
 }
 
 body[data-stage-aspect="landscape"] .stage-shell {
-  width: min(100%, 780px, calc((100dvh - var(--game-chrome, 240px)) * 1.35));
+  width: min(
+    100%,
+    780px,
+    calc(var(--game-stage-space, calc(100dvh - var(--game-chrome, 240px))) * 1.35)
+  );
   max-width: 780px;
   aspect-ratio: 4 / 3;
 }
@@ -970,9 +986,12 @@ body[data-stage-aspect="landscape"] .stage-shell {
 
 .game-bottom-bar {
   display: flex;
+  min-width: 0;
+  max-width: 100%;
   align-items: flex-end;
   justify-content: space-between;
   gap: 0.7rem;
+  flex-wrap: wrap;
 }
 
 .controls-cheat-sheet {
@@ -989,7 +1008,11 @@ body[data-stage-aspect="landscape"] .stage-shell {
 
 .buttons {
   display: flex;
+  min-width: 0;
+  max-width: 100%;
+  justify-content: flex-end;
   gap: 0.55rem;
+  flex-wrap: wrap;
 }
 
 #pause-button,
@@ -1233,7 +1256,11 @@ body.is-touch .touch-controls {
 
   body[data-panel="game"] .stage-shell,
   body[data-stage-aspect="landscape"] .stage-shell {
-    width: min(100%, calc(100vw - 3.4rem), calc(100dvh - var(--game-chrome, 260px)));
+    width: min(
+      100%,
+      calc(100vw - 3.4rem),
+      var(--game-stage-space, calc(100dvh - var(--game-chrome, 260px)))
+    );
     aspect-ratio: 1 / 1;
   }
 

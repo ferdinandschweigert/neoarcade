@@ -342,17 +342,32 @@ function syncGameStageLayout() {
   const topBar = gameScreenEl.querySelector(".game-top-bar");
   const hud = gameScreenEl.querySelector(".game-hud");
   const bottomBar = gameScreenEl.querySelector(".game-bottom-bar");
+  const stageStack = gameScreenEl.querySelector(".game-stage-stack");
   const touchControls = gameScreenEl.querySelector("#touch-controls");
+  const touchControlsHeight = touchControls?.offsetHeight ?? 0;
+  const stageGap = stageStack
+    ? Number.parseFloat(window.getComputedStyle(stageStack).gap) || 0
+    : 0;
+  const stageSpace = Math.max(
+    0,
+    (stageStack?.clientHeight ?? 0)
+      - touchControlsHeight
+      - (touchControlsHeight > 0 ? stageGap : 0),
+  );
   const chromeHeight =
     (topBar?.offsetHeight ?? 0)
     + (hud?.offsetHeight ?? 0)
     + (bottomBar?.offsetHeight ?? 0)
-    + (touchControls?.offsetHeight ?? 0)
+    + touchControlsHeight
     + 48;
 
   document.documentElement.style.setProperty(
     "--game-chrome",
     `${Math.ceil(chromeHeight)}px`,
+  );
+  document.documentElement.style.setProperty(
+    "--game-stage-space",
+    `${Math.floor(stageSpace)}px`,
   );
 }
 
@@ -365,6 +380,7 @@ function setActivePanel(panelName) {
       delete gameScreenEl.dataset.stageAspect;
     }
     document.documentElement.style.removeProperty("--game-chrome");
+    document.documentElement.style.removeProperty("--game-stage-space");
   }
 }
 
