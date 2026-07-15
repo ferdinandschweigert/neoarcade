@@ -1,13 +1,10 @@
 import { directionFromKey } from "../gameLogic.mjs";
-import {
-  CANVAS_SIZE,
-  drawDot,
-  drawDiamond,
-  drawGrid,
-  clearCanvas,
-  rectsOverlap,
-  clamp,
-} from "./shared.mjs";
+import { CANVAS_SIZE, drawDot, drawDiamond, clearCanvas } from "./shared.mjs";
+import { createLcdSpriteAtlas, drawLcdSprite } from "./lcdSprites.mjs";
+
+const labyrinthSprites = createLcdSpriteAtlas(
+  new URL("../../assets/lcd-labyrinth-sprites.png", import.meta.url).href,
+);
 
 export function createLabyrinthGame(ctx) {
   const map = [
@@ -195,7 +192,7 @@ export function createLabyrinthGame(ctx) {
       }
     },
     render() {
-      clearCanvas(ctx, "#0f141a");
+      clearCanvas(ctx, "#a5b46a");
 
       for (let y = 0; y < gridSize; y += 1) {
         for (let x = 0; x < gridSize; x += 1) {
@@ -203,47 +200,82 @@ export function createLabyrinthGame(ctx) {
           const py = y * cell;
 
           if (walls.has(`${x},${y}`)) {
-            ctx.fillStyle = "#264d8c";
+            ctx.fillStyle = "#263417";
             ctx.fillRect(px, py, cell, cell);
+            ctx.fillStyle = "#354622";
+            ctx.fillRect(px + 3, py + 3, cell - 6, 3);
             continue;
           }
 
-          ctx.fillStyle = "#1d242e";
+          ctx.fillStyle = (x + y) % 2 === 0 ? "#899751" : "#7b8a48";
           ctx.fillRect(px, py, cell, cell);
         }
       }
 
-      ctx.fillStyle = "#f4d20b";
       for (const id of state.remainingKeys) {
         const [xText, yText] = id.split(",");
         const x = Number(xText);
         const y = Number(yText);
-        drawDiamond(
+        const drawn = drawLcdSprite(
           ctx,
-          x * cell + cell / 2,
-          y * cell + cell / 2,
-          cell * 0.27,
+          labyrinthSprites,
+          0,
+          1,
+          x * cell - cell * 0.18,
+          y * cell - cell * 0.18,
+          cell * 1.36,
+          cell * 1.36,
         );
+        if (!drawn) {
+          ctx.fillStyle = "#18210f";
+          drawDiamond(ctx, x * cell + cell / 2, y * cell + cell / 2, cell * 0.27);
+        }
       }
 
-      ctx.fillStyle = "#22c55e";
-      ctx.fillRect(exit.x * cell + 6, exit.y * cell + 6, cell - 12, cell - 12);
-
-      ctx.fillStyle = "#f4d20b";
-      drawDot(
+      const exitDrawn = drawLcdSprite(
         ctx,
-        state.player.x * cell + cell / 2,
-        state.player.y * cell + cell / 2,
-        cell * 0.31,
+        labyrinthSprites,
+        1,
+        1,
+        exit.x * cell - cell * 0.18,
+        exit.y * cell - cell * 0.18,
+        cell * 1.36,
+        cell * 1.36,
       );
+      if (!exitDrawn) {
+        ctx.fillStyle = "#65783a";
+        ctx.fillRect(exit.x * cell + 6, exit.y * cell + 6, cell - 12, cell - 12);
+      }
 
-      ctx.fillStyle = "#e24739";
-      drawDot(
+      const playerDrawn = drawLcdSprite(
         ctx,
-        state.guard.x * cell + cell / 2,
-        state.guard.y * cell + cell / 2,
-        cell * 0.31,
+        labyrinthSprites,
+        0,
+        0,
+        state.player.x * cell - cell * 0.2,
+        state.player.y * cell - cell * 0.2,
+        cell * 1.4,
+        cell * 1.4,
       );
+      if (!playerDrawn) {
+        ctx.fillStyle = "#a5b46a";
+        drawDot(ctx, state.player.x * cell + cell / 2, state.player.y * cell + cell / 2, cell * 0.31);
+      }
+
+      const guardDrawn = drawLcdSprite(
+        ctx,
+        labyrinthSprites,
+        1,
+        0,
+        state.guard.x * cell - cell * 0.2,
+        state.guard.y * cell - cell * 0.2,
+        cell * 1.4,
+        cell * 1.4,
+      );
+      if (!guardDrawn) {
+        ctx.fillStyle = "#18210f";
+        drawDot(ctx, state.guard.x * cell + cell / 2, state.guard.y * cell + cell / 2, cell * 0.31);
+      }
     },
     onKeyDown(keyText) {
       const keyLower = String(keyText).toLowerCase();

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
+import { CLASSIC_GAME_IDS as FRONTEND_GAME_IDS } from "../src/ui/layout.mjs";
 
 const require = createRequire(import.meta.url);
 const {
@@ -18,6 +19,8 @@ test("sanitizeUsername keeps safe characters", () => {
 
 test("sanitizeGameId allows only classic games", () => {
   assert.equal(sanitizeGameId("snake"), "snake");
+  assert.equal(sanitizeGameId("labyrinth"), "labyrinth");
+  assert.equal(sanitizeGameId("grannyrun"), "grannyrun");
   assert.equal(sanitizeGameId("blaster"), null);
 });
 
@@ -32,6 +35,7 @@ test("isBetterScore respects game direction", () => {
   assert.equal(isBetterScore("snake", null, 5), true);
 });
 
-test("classic game list has eleven entries", () => {
-  assert.equal(CLASSIC_GAME_IDS.length, 11);
+test("classic game list has thirteen entries", () => {
+  assert.equal(CLASSIC_GAME_IDS.length, 13);
+  assert.deepEqual(FRONTEND_GAME_IDS, CLASSIC_GAME_IDS);
 });

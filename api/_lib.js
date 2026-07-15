@@ -15,6 +15,8 @@ const CLASSIC_GAME_IDS = [
   "invaders",
   "memory",
   "mines",
+  "labyrinth",
+  "grannyrun",
 ];
 
 const LOWER_IS_BETTER_GAMES = new Set(["memory", "mines"]);
@@ -31,6 +33,8 @@ const GAME_LABELS = {
   invaders: "Space Invaders",
   memory: "Memory Match",
   mines: "Minefield",
+  labyrinth: "Labyrinth Heist",
+  grannyrun: "Granny Rooftop",
 };
 
 function keys() {

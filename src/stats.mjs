@@ -1,5 +1,7 @@
 import { fetchMyStats } from "./apiClient.mjs";
-import { GAME_LABELS } from "./ui/layout.mjs";
+import { CLASSIC_GAME_IDS, GAME_LABELS } from "./ui/layout.mjs";
+
+const DEFAULT_TOTAL_GAMES = CLASSIC_GAME_IDS.length;
 
 export function createStatsView(config = {}) {
   const summaryEl = config.summaryEl;
@@ -59,7 +61,7 @@ export function createStatsView(config = {}) {
     summaryEl.innerHTML = "";
 
     const cards = [
-      { label: "Games scored", value: `${summary.gamesWithScores || 0} / ${summary.totalGames || 11}` },
+      { label: "Games scored", value: `${summary.gamesWithScores || 0} / ${summary.totalGames || DEFAULT_TOTAL_GAMES}` },
       { label: "Recent plays", value: String(summary.playCount || 0) },
       { label: "Active days", value: String(summary.activeDays || 0) },
     ];
@@ -143,7 +145,7 @@ export function createStatsView(config = {}) {
       return;
     }
 
-    const total = summary.totalGames || 11;
+    const total = summary.totalGames || DEFAULT_TOTAL_GAMES;
     const done = summary.gamesWithScores || 0;
     const percent = total > 0 ? Math.round((done / total) * 100) : 0;
 

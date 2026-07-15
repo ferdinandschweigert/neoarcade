@@ -10,6 +10,8 @@ import { createMinefieldGame } from "./games/mines.mjs";
 import { createFroggerGame } from "./games/frogger.mjs";
 import { createAsteroidsGame } from "./games/asteroids.mjs";
 import { createInvadersGame } from "./games/invaders.mjs";
+import { createLabyrinthGame } from "./games/labyrinth.mjs";
+import { createGrannyRunGame } from "./games/grannyrun.mjs";
 import { submitScore } from "./apiClient.mjs";
 import { createAuthManager } from "./auth.mjs";
 import { createLeaderboardView } from "./leaderboard.mjs";
@@ -44,6 +46,8 @@ const DISPLAY_TITLES = {
   pacman: "Pac-Maze",
   memory: "Memory Match",
   mines: "Minefield",
+  labyrinth: "Labyrinth Heist",
+  grannyrun: "Granny Rooftop",
 };
 
 const playViewEl = document.querySelector("#play-view");
@@ -99,6 +103,8 @@ const games = {
   invaders: createInvadersGame(context),
   memory: createMemoryMatchGame(context),
   mines: createMinefieldGame(context),
+  labyrinth: createLabyrinthGame(context),
+  grannyrun: createGrannyRunGame(context),
 };
 
 const gameCardBestEls = new Map();

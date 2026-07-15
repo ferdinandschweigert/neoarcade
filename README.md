@@ -1,10 +1,10 @@
 # Brain Break Arcade
 
-Eleven classic browser games for short brain breaks between work sessions — with friend sign-in and rankings on Vercel.
+Thirteen classic browser games for short brain breaks between work sessions — with friend sign-in and rankings on Vercel.
 
 Play at **[neoarcade.vercel.app](https://neoarcade.vercel.app)**.
 
-## Games (11 classics)
+## Games (13 classics)
 
 - Snake
 - Tetris (Blockfall engine)
@@ -17,10 +17,12 @@ Play at **[neoarcade.vercel.app](https://neoarcade.vercel.app)**.
 - Space Invaders
 - Memory Match
 - Minefield
+- Labyrinth Heist
+- Granny Rooftop
 
 ## Features
 
-- Cursor-inspired full-page layout
+- 1980s handheld layout with a four-tone LCD palette
 - Optional sign-in via **Sign in** link (top right) for friend rankings
 - Play immediately without an account; guest scores stay on device
 - Per-game and overall leaderboards

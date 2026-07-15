@@ -1,9 +1,13 @@
 import { CANVAS_SIZE, clearCanvas, clamp, drawDot } from "./shared.mjs";
+import { createLcdSpriteAtlas, drawLcdSprite } from "./lcdSprites.mjs";
 
 const PLAYER_SCREEN_X = 108;
 const PLAYER_W = 28;
 const PLAYER_H = 40;
 const GROUND_BASE = CANVAS_SIZE - 72;
+const grannySprites = createLcdSpriteAtlas(
+  new URL("../../assets/lcd-granny-sprites.png", import.meta.url).href,
+);
 
 export function createGrannyRunGame(ctx) {
   const difficultyPresets = {
@@ -81,6 +85,7 @@ export function createGrannyRunGame(ctx) {
       tone: "#5c6b78",
       chimney: false,
     });
+    initial.playerY = platformTop(initial.platforms[0]) - PLAYER_H;
     initial.worldEnd = initial.platforms[0].width;
 
     return initial;
@@ -354,18 +359,22 @@ export function createGrannyRunGame(ctx) {
       pruneWorld();
     },
     render() {
-      clearCanvas(ctx, "#87b8ff");
+      clearCanvas(ctx, "#a5b46a");
 
       const parallax = (state.scrollX * 0.2) % CANVAS_SIZE;
 
-      ctx.fillStyle = "#6fa8ef";
+      ctx.fillStyle = "#a5b46a";
       ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE * 0.55);
 
-      ctx.fillStyle = "#35506a";
+      ctx.fillStyle = "#65783a";
       for (let i = -1; i < 4; i += 1) {
         const baseX = i * 160 - parallax * 0.35;
         ctx.fillRect(baseX, 120, 90, 180);
         ctx.fillRect(baseX + 40, 90, 70, 210);
+        ctx.fillStyle = "#899751";
+        ctx.fillRect(baseX + 14, 140, 12, 18);
+        ctx.fillRect(baseX + 52, 112, 12, 18);
+        ctx.fillStyle = "#65783a";
       }
 
       for (const platform of state.platforms) {
@@ -374,13 +383,13 @@ export function createGrannyRunGame(ctx) {
           continue;
         }
 
-        ctx.fillStyle = platform.tone;
+        ctx.fillStyle = platform.tone === "#5c6b78" ? "#354622" : "#263417";
         ctx.fillRect(x, platform.y - platform.height, platform.width, platform.height);
-        ctx.fillStyle = "#2f3942";
+        ctx.fillStyle = "#18210f";
         ctx.fillRect(x, platform.y - platform.height, platform.width, 6);
 
         if (platform.chimney) {
-          ctx.fillStyle = "#263038";
+          ctx.fillStyle = "#18210f";
           ctx.fillRect(x + platform.width * 0.25, platform.y - platform.height - 22, 14, 22);
         }
       }
@@ -391,17 +400,17 @@ export function createGrannyRunGame(ctx) {
           continue;
         }
 
-        ctx.strokeStyle = hook.used ? "#6b4d35" : "#4d3018";
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(x, hook.y - 36);
-        ctx.lineTo(x, hook.y);
-        ctx.stroke();
-
-        ctx.fillStyle = hook.used ? "#9a4030" : "#e24739";
-        drawDot(ctx, x, hook.y, hook.radius);
-        ctx.fillStyle = "#6fbf59";
-        ctx.fillRect(x - 4, hook.y - hook.radius - 6, 8, 5);
+        const drawn = drawLcdSprite(ctx, grannySprites, 1, 1, x - 28, hook.y - 58, 56, 76);
+        if (!drawn) {
+          ctx.strokeStyle = "#18210f";
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(x, hook.y - 36);
+          ctx.lineTo(x, hook.y);
+          ctx.stroke();
+          ctx.fillStyle = "#354622";
+          drawDot(ctx, x, hook.y, hook.radius);
+        }
       }
 
       for (const pickup of state.pickups) {
@@ -414,10 +423,11 @@ export function createGrannyRunGame(ctx) {
           continue;
         }
 
-        ctx.fillStyle = "#ffd60a";
-        drawDot(ctx, x, pickup.y, pickup.radius);
-        ctx.fillStyle = "#6fbf59";
-        ctx.fillRect(x - 3, pickup.y - pickup.radius - 4, 6, 4);
+        const drawn = drawLcdSprite(ctx, grannySprites, 0, 1, x - 18, pickup.y - 18, 36, 36);
+        if (!drawn) {
+          ctx.fillStyle = "#65783a";
+          drawDot(ctx, x, pickup.y, pickup.radius);
+        }
       }
 
       const px = PLAYER_SCREEN_X;
@@ -430,19 +440,25 @@ export function createGrannyRunGame(ctx) {
       }
       ctx.translate(-(px + PLAYER_W / 2), -(py + PLAYER_H / 2));
 
-      ctx.fillStyle = "#6b5a8e";
-      ctx.fillRect(px, py + 12, PLAYER_W, PLAYER_H - 12);
-      ctx.fillStyle = "#d8c9b8";
-      drawDot(ctx, px + PLAYER_W / 2, py + 10, 11);
-      ctx.fillStyle = "#ececec";
-      ctx.fillRect(px + 7, py + 2, 14, 8);
-      ctx.fillStyle = "#1e61ff";
-      ctx.fillRect(px + 4, py + 20, 8, 10);
-      ctx.fillStyle = "#111";
-      ctx.fillRect(px + 18, py + 28, 10, 6);
+      const playerDrawn = drawLcdSprite(
+        ctx,
+        grannySprites,
+        state.mode === "run" ? 0 : 1,
+        0,
+        px - 15,
+        py - 10,
+        PLAYER_W + 30,
+        PLAYER_H + 20,
+      );
+      if (!playerDrawn) {
+        ctx.fillStyle = "#354622";
+        ctx.fillRect(px, py + 12, PLAYER_W, PLAYER_H - 12);
+        ctx.fillStyle = "#a5b46a";
+        drawDot(ctx, px + PLAYER_W / 2, py + 10, 11);
+      }
 
       if (state.mode === "swing") {
-        ctx.strokeStyle = "#f4d20b";
+        ctx.strokeStyle = "#18210f";
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(px + PLAYER_W / 2, py + 8);

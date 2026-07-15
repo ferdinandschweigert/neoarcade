@@ -10,6 +10,8 @@ export const CLASSIC_GAME_IDS = [
   "invaders",
   "memory",
   "mines",
+  "labyrinth",
+  "grannyrun",
 ];
 
 export const GAME_LABELS = {
@@ -24,6 +26,8 @@ export const GAME_LABELS = {
   invaders: "Space Invaders",
   memory: "Memory Match",
   mines: "Minefield",
+  labyrinth: "Labyrinth Heist",
+  grannyrun: "Granny Rooftop",
 };
 
 export function createLayoutManager(config = {}) {
