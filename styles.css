@@ -152,7 +152,7 @@ summary:focus-visible {
 }
 
 .app-shell::before {
-  content: "DOT MATRIX • 13 GAMES";
+  content: "DOT MATRIX • 15 GAMES";
   position: absolute;
   bottom: 1.55rem;
   left: 50%;
@@ -539,6 +539,18 @@ body:not([data-panel="game"]) .app::after {
   background-repeat: no-repeat;
   background-size: 200% 200%;
 }
+
+.game-card[data-game="cloverquest"] .game-icon {
+  background: var(--lime);
+}
+
+.game-card[data-game="cloverquest"] .game-icon::after { content: "CQ"; }
+
+.game-card[data-game="afterhours"] .game-icon {
+  background: var(--violet);
+}
+
+.game-card[data-game="afterhours"] .game-icon::after { content: "AH"; }
 
 .game-card[data-game="labyrinth"] .game-icon {
   background-image: url("./assets/lcd-labyrinth-sprites.png");

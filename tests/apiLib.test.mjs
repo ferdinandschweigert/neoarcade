@@ -35,7 +35,7 @@ test("isBetterScore respects game direction", () => {
   assert.equal(isBetterScore("snake", null, 5), true);
 });
 
-test("classic game list has thirteen entries", () => {
-  assert.equal(CLASSIC_GAME_IDS.length, 13);
+test("classic game list has fifteen entries", () => {
+  assert.equal(CLASSIC_GAME_IDS.length, 15);
   assert.deepEqual(FRONTEND_GAME_IDS, CLASSIC_GAME_IDS);
 });

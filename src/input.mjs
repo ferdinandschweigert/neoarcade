@@ -11,6 +11,7 @@ export const ACTION_LABELS = {
 
 export const CONTROL_SCHEMES = {
   none: [],
+  action: [["SELECT"]],
   dpad: [["UP"], ["LEFT", "DOWN", "RIGHT"]],
   horizontal: [["LEFT", "RIGHT"]],
   vertical: [["UP", "DOWN"]],
@@ -31,6 +32,7 @@ export const ACTION_ARIA_LABELS = {
 };
 
 export const DEFAULT_CONTROL_HINTS = {
+  action: "Press Action to start or interact.",
   dpad: "Swipe or use the D-pad to move.",
   horizontal: "Swipe left/right or use on-screen buttons.",
   vertical: "Swipe up/down or use on-screen buttons.",

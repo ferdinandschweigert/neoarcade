@@ -12,6 +12,8 @@ export const CLASSIC_GAME_IDS = [
   "mines",
   "labyrinth",
   "grannyrun",
+  "cloverquest",
+  "afterhours",
 ];
 
 export const GAME_LABELS = {
@@ -28,6 +30,8 @@ export const GAME_LABELS = {
   mines: "Minefield",
   labyrinth: "Labyrinth Heist",
   grannyrun: "Granny Rooftop",
+  cloverquest: "Clover Quest",
+  afterhours: "After Hours Arcade",
 };
 
 export function createLayoutManager(config = {}) {

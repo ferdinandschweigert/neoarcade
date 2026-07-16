@@ -155,9 +155,16 @@ export function createGrannyRunGame(ctx) {
   function extendWorld() {
     const cfg = preset();
     const start = state.worldEnd;
+    const previous = state.platforms[state.platforms.length - 1];
     const width = 70 + Math.floor(Math.random() * 90);
     const height = 34 + Math.floor(Math.random() * 28);
-    const y = GROUND_BASE - Math.floor(Math.random() * 36);
+    const previousTop = previous ? platformTop(previous) : GROUND_BASE - 54;
+    const nextTop = clamp(
+      previousTop + Math.floor(Math.random() * 49) - 24,
+      GROUND_BASE - 92,
+      GROUND_BASE - 30,
+    );
+    const y = nextTop + height;
 
     state.platforms.push({
       x: start,
@@ -168,7 +175,7 @@ export function createGrannyRunGame(ctx) {
       chimney: Math.random() < 0.35,
     });
 
-    const gap = Math.random() < cfg.gapChance ? 52 + Math.random() * 48 : 0;
+    const gap = Math.random() < cfg.gapChance ? 42 + Math.random() * 38 : 0;
     state.worldEnd = start + width + gap;
 
     const platformTopY = y - height;
@@ -370,6 +377,7 @@ export function createGrannyRunGame(ctx) {
   function checkFall() {
     if (state.playerY > CANVAS_SIZE + 40) {
       state.status = "game_over";
+      bestScore = Math.max(bestScore, Math.floor(state.distance));
     }
   }
 
@@ -383,7 +391,7 @@ export function createGrannyRunGame(ctx) {
   return {
     title: "Granny Rooftop",
     controlScheme: "dpad",
-    stageAspect: "landscape",
+    stageAspect: "square",
     setDifficulty(nextDifficulty) {
       if (!difficultyPresets[nextDifficulty]) {
         difficulty = "normal";
@@ -423,10 +431,6 @@ export function createGrannyRunGame(ctx) {
       state.speed += (targetSpeed - state.speed) * 0.055;
       state.scrollX += state.speed;
       state.distance += state.speed;
-
-      if (state.distance > bestScore) {
-        bestScore = Math.floor(state.distance);
-      }
 
       if (Math.floor(state.distance) % 8 === 0) {
         state.score += 1;

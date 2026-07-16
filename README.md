@@ -4,7 +4,7 @@ Thirteen classic browser games for short brain breaks between work sessions — 
 
 Play at **[neoarcade.vercel.app](https://neoarcade.vercel.app)**.
 
-## Games (13 classics)
+## Games (15 classics)
 
 - Snake
 - Tetris (Blockfall engine)
@@ -19,10 +19,13 @@ Play at **[neoarcade.vercel.app](https://neoarcade.vercel.app)**.
 - Minefield
 - Labyrinth Heist
 - Granny Rooftop
+- Clover Quest
+- After Hours Arcade
 
 ## Features
 
 - 1980s handheld layout with a four-tone LCD palette
+- A polished rooftop runner, a block-breaking clover platformer, and an offline-aware arcade-workshop idle game
 - Optional sign-in via **Sign in** link (top right) for friend rankings
 - Play immediately without an account; guest scores stay on device
 - Per-game and overall leaderboards

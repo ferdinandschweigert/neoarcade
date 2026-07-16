@@ -17,6 +17,8 @@ const CLASSIC_GAME_IDS = [
   "mines",
   "labyrinth",
   "grannyrun",
+  "cloverquest",
+  "afterhours",
 ];
 
 const LOWER_IS_BETTER_GAMES = new Set(["memory", "mines"]);
@@ -35,6 +37,8 @@ const GAME_LABELS = {
   mines: "Minefield",
   labyrinth: "Labyrinth Heist",
   grannyrun: "Granny Rooftop",
+  cloverquest: "Clover Quest",
+  afterhours: "After Hours Arcade",
 };
 
 function keys() {

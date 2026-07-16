@@ -12,6 +12,8 @@ import { createAsteroidsGame } from "./games/asteroids.mjs";
 import { createInvadersGame } from "./games/invaders.mjs";
 import { createLabyrinthGame } from "./games/labyrinth.mjs";
 import { createGrannyRunGame } from "./games/grannyrun.mjs";
+import { createCloverQuestGame } from "./games/cloverquest.mjs";
+import { createAfterHoursArcadeGame } from "./games/afterhours.mjs";
 import { submitScore } from "./apiClient.mjs";
 import { createAuthManager } from "./auth.mjs";
 import { createLeaderboardView } from "./leaderboard.mjs";
@@ -48,6 +50,8 @@ const DISPLAY_TITLES = {
   mines: "Minefield",
   labyrinth: "Labyrinth Heist",
   grannyrun: "Granny Rooftop",
+  cloverquest: "Clover Quest",
+  afterhours: "After Hours Arcade",
 };
 
 const playViewEl = document.querySelector("#play-view");
@@ -105,6 +109,8 @@ const games = {
   mines: createMinefieldGame(context),
   labyrinth: createLabyrinthGame(context),
   grannyrun: createGrannyRunGame(context),
+  cloverquest: createCloverQuestGame(context),
+  afterhours: createAfterHoursArcadeGame(context),
 };
 
 const gameCardBestEls = new Map();
