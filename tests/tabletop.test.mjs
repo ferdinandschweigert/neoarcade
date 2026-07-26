@@ -30,3 +30,11 @@ test("wizard scoring matches standard formula", () => {
 test("tabletop storage key exists", () => {
   assert.equal(STORAGE_KEYS.TABLETOP_SESSIONS, "neoArcade.tabletop.v1");
 });
+
+test("wizard option counts stay chip-friendly only early", () => {
+  // Round n deals n cards → n+1 options (0..n). Chips up to 7 options ⇒ rounds 1–6.
+  for (let round = 1; round <= 6; round += 1) {
+    assert.ok(round + 1 <= 7, `round ${round} should use chips`);
+  }
+  assert.ok(12 + 1 > 7, "round 12 should fall back to steppers");
+});

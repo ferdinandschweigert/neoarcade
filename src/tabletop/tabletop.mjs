@@ -12,6 +12,8 @@ import {
 } from "../storage.mjs";
 
 const MAX_HISTORY = 10;
+/** Chips stay readable up to this many options (e.g. 0..6). Larger ranges use steppers. */
+const CHIP_OPTION_LIMIT = 7;
 
 export function createTabletopManager(config = {}) {
   const rootEl = config.rootEl;
@@ -661,14 +663,14 @@ export function createTabletopManager(config = {}) {
           (player, index) => `
           <fieldset class="tt-player-round">
             <legend>${escapeHtml(player.name)}</legend>
-            ${renderChipPicker({
+            ${renderBoundedNumber({
               label: "Ansage",
               name: `bid-${index}`,
               value: 0,
               min: 0,
               max: maxTricks,
             })}
-            ${renderChipPicker({
+            ${renderBoundedNumber({
               label: "Stiche",
               name: `tricks-${index}`,
               value: 0,
@@ -678,7 +680,11 @@ export function createTabletopManager(config = {}) {
           </fieldset>`,
         )
         .join("");
-      return `<form class="tt-form" data-tt-form="round"><h3>Runde ${session.rounds.length + 1}</h3><div class="tt-round-grid">${fields}</div><button type="submit" class="tt-save-round">Runde speichern</button></form>`;
+      return `<form class="tt-form" data-tt-form="round"><h3>Runde ${session.rounds.length + 1}</h3><p class="tt-meta">${
+        maxTricks + 1 <= CHIP_OPTION_LIMIT
+          ? "Zahl antippen"
+          : "Mit − / + einstellen (viele Stiche in dieser Runde)"
+      }</p><div class="tt-round-grid">${fields}</div><button type="submit" class="tt-save-round">Runde speichern</button></form>`;
     }
 
     if (game.scoreMode === "phase10") {
@@ -724,8 +730,25 @@ export function createTabletopManager(config = {}) {
     return `<form class="tt-form" data-tt-form="round"><h3>Runde ${session.rounds.length + 1} — Punkte</h3><div class="tt-round-grid">${fields}</div><button type="submit">Runde speichern</button></form>`;
   }
 
+  function renderBoundedNumber({ label, name, value = 0, min = 0, max = 0 }) {
+    const optionCount = max - min + 1;
+    if (optionCount <= CHIP_OPTION_LIMIT) {
+      return renderChipPicker({ label, name, value, min, max });
+    }
+    return renderStepper({
+      label,
+      name,
+      value,
+      min,
+      max,
+      step: 1,
+      bigStep: optionCount > 12 ? 5 : null,
+    });
+  }
+
   function renderChipPicker({ label, name, value = 0, min = 0, max = 0 }) {
     const chips = [];
+    const compact = max - min + 1 >= 6 ? " tt-chip-row-compact" : "";
     for (let n = min; n <= max; n += 1) {
       const active = n === value ? " is-active" : "";
       chips.push(
@@ -736,7 +759,7 @@ export function createTabletopManager(config = {}) {
       <div class="tt-chip-field" data-tt-chip-field="${escapeAttr(name)}">
         <span class="tt-stepper-label">${escapeHtml(label)}</span>
         <input type="hidden" name="${escapeAttr(name)}" value="${value}" min="${min}" max="${max}" required />
-        <div class="tt-chip-row" role="group" aria-label="${escapeAttr(label)}">${chips.join("")}</div>
+        <div class="tt-chip-row${compact}" role="group" aria-label="${escapeAttr(label)}">${chips.join("")}</div>
       </div>`;
   }
 

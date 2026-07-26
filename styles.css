@@ -1678,6 +1678,17 @@ body.tabletop-open {
   gap: 0.35rem;
 }
 
+.tt-chip-row-compact {
+  gap: 0.28rem;
+}
+
+.tt-chip-row-compact .tt-chip {
+  width: 2.45rem !important;
+  min-width: 2.45rem;
+  min-height: 2.45rem !important;
+  font-size: 0.9rem !important;
+}
+
 .tt-chip {
   width: 2.75rem !important;
   min-width: 2.75rem;
