@@ -160,8 +160,21 @@ export function createTabletopManager(config = {}) {
       if (max != null && Number.isFinite(max)) {
         next = Math.min(max, next);
       }
-      input.value = String(next);
-      input.dispatchEvent(new Event("input", { bubbles: true }));
+      setNumericFieldValue(input, next);
+      return;
+    }
+    if (action === "set-value") {
+      event.preventDefault();
+      const targetName = button.dataset.ttTarget;
+      const value = Number(button.dataset.ttValue);
+      if (!targetName || !Number.isFinite(value)) {
+        return;
+      }
+      const input = rootEl.querySelector(`input[name="${CSS.escape(targetName)}"]`);
+      if (!(input instanceof HTMLInputElement)) {
+        return;
+      }
+      setNumericFieldValue(input, value);
       return;
     }
     if (action === "close") {
@@ -609,7 +622,7 @@ export function createTabletopManager(config = {}) {
     if (game.scoreMode === "wizard") {
       const maxR = wizardMaxRounds(activeSession.players.length);
       const next = activeSession.rounds.length + 1;
-      endHint = `<p class="tt-hint">Runde ${Math.min(next, maxR)} von ${maxR} (je ${Math.min(next, maxR)} Karten).</p>`;
+      endHint = `<p class="tt-hint">Runde ${Math.min(next, maxR)} von ${maxR} (je ${Math.min(next, maxR)} ${Math.min(next, maxR) === 1 ? "Karte" : "Karten"}).</p>`;
       if (activeSession.rounds.length >= maxR) {
         endHint = `<p class="tt-hint">Alle Wizard-Runden sind gespielt. ${escapeHtml(leader.name)} führt mit ${leader.total}.</p>`;
       }
@@ -648,14 +661,14 @@ export function createTabletopManager(config = {}) {
           (player, index) => `
           <fieldset class="tt-player-round">
             <legend>${escapeHtml(player.name)}</legend>
-            ${renderStepper({
+            ${renderChipPicker({
               label: "Ansage",
               name: `bid-${index}`,
               value: 0,
               min: 0,
               max: maxTricks,
             })}
-            ${renderStepper({
+            ${renderChipPicker({
               label: "Stiche",
               name: `tricks-${index}`,
               value: 0,
@@ -665,7 +678,7 @@ export function createTabletopManager(config = {}) {
           </fieldset>`,
         )
         .join("");
-      return `<form class="tt-form" data-tt-form="round"><h3>Runde ${session.rounds.length + 1}</h3><div class="tt-round-grid">${fields}</div><button type="submit">Runde speichern</button></form>`;
+      return `<form class="tt-form" data-tt-form="round"><h3>Runde ${session.rounds.length + 1}</h3><div class="tt-round-grid">${fields}</div><button type="submit" class="tt-save-round">Runde speichern</button></form>`;
     }
 
     if (game.scoreMode === "phase10") {
@@ -709,6 +722,35 @@ export function createTabletopManager(config = {}) {
       )
       .join("");
     return `<form class="tt-form" data-tt-form="round"><h3>Runde ${session.rounds.length + 1} — Punkte</h3><div class="tt-round-grid">${fields}</div><button type="submit">Runde speichern</button></form>`;
+  }
+
+  function renderChipPicker({ label, name, value = 0, min = 0, max = 0 }) {
+    const chips = [];
+    for (let n = min; n <= max; n += 1) {
+      const active = n === value ? " is-active" : "";
+      chips.push(
+        `<button type="button" class="tt-chip tt-secondary${active}" data-tt-action="set-value" data-tt-target="${escapeAttr(name)}" data-tt-value="${n}" aria-pressed="${n === value ? "true" : "false"}">${n}</button>`,
+      );
+    }
+    return `
+      <div class="tt-chip-field" data-tt-chip-field="${escapeAttr(name)}">
+        <span class="tt-stepper-label">${escapeHtml(label)}</span>
+        <input type="hidden" name="${escapeAttr(name)}" value="${value}" min="${min}" max="${max}" required />
+        <div class="tt-chip-row" role="group" aria-label="${escapeAttr(label)}">${chips.join("")}</div>
+      </div>`;
+  }
+
+  function setNumericFieldValue(input, next) {
+    input.value = String(next);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    const field = input.closest("[data-tt-chip-field]");
+    if (field) {
+      for (const chip of field.querySelectorAll(".tt-chip")) {
+        const isActive = Number(chip.dataset.ttValue) === next;
+        chip.classList.toggle("is-active", isActive);
+        chip.setAttribute("aria-pressed", isActive ? "true" : "false");
+      }
+    }
   }
 
   function renderStepper({

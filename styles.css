@@ -1666,6 +1666,42 @@ body.tabletop-open {
   text-transform: uppercase;
 }
 
+.tt-chip-field {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.tt-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.tt-chip {
+  width: 2.75rem !important;
+  min-width: 2.75rem;
+  min-height: 2.75rem !important;
+  padding: 0 !important;
+  border-radius: 0.55rem !important;
+  font-size: 1rem !important;
+  line-height: 1;
+}
+
+.tt-chip.is-active {
+  background: var(--burgundy) !important;
+  border-color: var(--burgundy-dark) !important;
+  color: #fff0d1 !important;
+  box-shadow: 0 3px 0 var(--burgundy-dark) !important;
+}
+
+.tt-save-round {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  margin-top: 0.35rem;
+}
+
 .tt-stepper-row {
   display: grid;
   grid-template-columns: 3rem minmax(0, 1fr) 3rem;
@@ -1883,13 +1919,37 @@ body.tabletop-open {
     grid-column: 1 / -1;
   }
 
-  .tabletop-card button {
+  .tt-card-actions > button,
+  .tt-session-actions > button,
+  .tt-form > button[type="submit"] {
     width: 100%;
     justify-self: stretch;
   }
 
-  .tt-toolbar button {
+  .tt-toolbar {
+    flex-wrap: nowrap;
+    gap: 0.4rem;
+  }
+
+  .tt-toolbar h2 {
+    flex: 1 1 auto;
+    text-align: center;
+    font-size: 0.95rem;
+  }
+
+  .tt-toolbar > button {
+    width: auto;
+    flex: 0 0 auto;
+    min-width: 4.6rem;
     min-height: 2.45rem;
+    padding-inline: 0.55rem;
+    font-size: 0.62rem;
+  }
+
+  .tt-chip {
+    width: 2.9rem !important;
+    min-width: 2.9rem;
+    min-height: 2.9rem !important;
   }
 
   .app-user .user-label {
