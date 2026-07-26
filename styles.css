@@ -977,13 +977,16 @@ body[data-panel="game"] .app {
   max-width: 100%;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 0.5rem;
   overflow: hidden;
 }
 
 .stage-shell {
   position: relative;
+  flex: 0 1 auto;
+  min-width: 0;
+  min-height: 0;
   width: min(100%, var(--stage-size, 100%));
   margin-inline: auto;
   padding: 8px;
@@ -1125,6 +1128,12 @@ body[data-stage-aspect="landscape"] .stage-shell {
   display: none;
   width: min(100%, 30rem);
   gap: 0.35rem;
+  flex-shrink: 0;
+  touch-action: manipulation;
+}
+
+.touch-controls:not(.is-empty) {
+  display: grid;
 }
 
 .touch-row {
@@ -1136,10 +1145,6 @@ body[data-stage-aspect="landscape"] .stage-shell {
 .touch-row.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .touch-row.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
-body.is-touch .touch-controls {
-  display: grid;
-}
-
 .touch-action-button {
   min-height: 2.7rem;
   padding: 0.35rem;
@@ -1148,6 +1153,9 @@ body.is-touch .touch-controls {
   color: var(--navy-dark);
   box-shadow: 0 4px 0 var(--cyan-dark);
   font-size: 1rem;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .touch-action-button[data-action="ACTION"],

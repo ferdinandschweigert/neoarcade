@@ -126,6 +126,8 @@ export function createInputManager(options) {
 
   let touchHoldTimer = null;
   let touchHoldAction = null;
+  let suppressButtonClick = false;
+  let suppressButtonClickTimer = null;
   let swipeTouchStartX = 0;
   let swipeTouchStartY = 0;
   let swipeTouchId = null;
@@ -147,6 +149,27 @@ export function createInputManager(options) {
       onControlApplied?.();
     }
     return changed;
+  }
+
+  function releaseControl(action) {
+    const game = getActiveGame();
+    if (!game || typeof game.onControlRelease !== "function") {
+      return false;
+    }
+
+    const changed = game.onControlRelease(action);
+    if (changed) {
+      onControlApplied?.();
+    }
+    return changed;
+  }
+
+  function resolveActionButton(eventTarget) {
+    if (!(eventTarget instanceof Element)) {
+      return null;
+    }
+
+    return eventTarget.closest("button[data-action]");
   }
 
   function renderTouchControls(schemeName) {
@@ -188,16 +211,30 @@ export function createInputManager(options) {
   }
 
   function stopTouchHold() {
+    const action = touchHoldAction;
+
     if (touchHoldTimer) {
       clearTimeout(touchHoldTimer);
       touchHoldTimer = null;
     }
 
     touchHoldAction = null;
+
+    if (action) {
+      releaseControl(action);
+    }
   }
 
   function startTouchHold(action) {
-    stopTouchHold();
+    if (touchHoldTimer) {
+      clearTimeout(touchHoldTimer);
+      touchHoldTimer = null;
+    }
+
+    if (touchHoldAction && touchHoldAction !== action) {
+      releaseControl(touchHoldAction);
+    }
+
     touchHoldAction = action;
     triggerControl(action);
 
@@ -251,55 +288,82 @@ export function createInputManager(options) {
       return;
     }
 
+    function armClickSuppression() {
+      suppressButtonClick = true;
+      if (suppressButtonClickTimer) {
+        clearTimeout(suppressButtonClickTimer);
+      }
+      suppressButtonClickTimer = setTimeout(() => {
+        suppressButtonClick = false;
+        suppressButtonClickTimer = null;
+      }, 120);
+    }
+
     touchControlsEl.addEventListener("pointerdown", (event) => {
-      if (!getActiveGame() || event.pointerType === "mouse") {
+      if (!getActiveGame()) {
         return;
       }
 
-      const target = event.target;
-      if (!(target instanceof HTMLButtonElement)) {
+      const button = resolveActionButton(event.target);
+      if (!button) {
         return;
       }
 
-      const action = target.dataset.action;
+      const action = button.dataset.action;
       if (!action) {
         return;
       }
 
       event.preventDefault();
+      event.stopPropagation();
+
+      try {
+        button.setPointerCapture(event.pointerId);
+      } catch {
+        // Some browsers reject capture on non-primary pointers.
+      }
+
+      armClickSuppression();
       startTouchHold(action);
     }, { passive: false });
 
     touchControlsEl.addEventListener("pointerup", (event) => {
-      if (event.pointerType !== "mouse") {
-        event.preventDefault();
-      }
+      event.preventDefault();
       stopTouchHold();
     }, { passive: false });
 
     touchControlsEl.addEventListener("pointercancel", () => {
       stopTouchHold();
+      suppressButtonClick = false;
     });
 
-    touchControlsEl.addEventListener("pointerleave", () => {
+    touchControlsEl.addEventListener("lostpointercapture", () => {
       stopTouchHold();
     });
 
+    // Fallback for keyboard / accessibility activation without pointer events.
     touchControlsEl.addEventListener("click", (event) => {
       if (!getActiveGame()) {
         return;
       }
 
-      const target = event.target;
-      if (!(target instanceof HTMLButtonElement)) {
+      if (suppressButtonClick) {
+        suppressButtonClick = false;
+        event.preventDefault();
         return;
       }
 
-      const action = target.dataset.action;
+      const button = resolveActionButton(event.target);
+      if (!button) {
+        return;
+      }
+
+      const action = button.dataset.action;
       if (!action) {
         return;
       }
 
+      event.preventDefault();
       triggerControl(action);
     });
   }
@@ -373,6 +437,11 @@ export function createInputManager(options) {
   function bindGlobalTouchScrollLock() {
     document.addEventListener("touchmove", (event) => {
       if (!getActiveGame()) {
+        return;
+      }
+
+      const target = event.target;
+      if (target instanceof Element && target.closest("#touch-controls, .controls-overlay, .auth-gate, .tabletop-overlay")) {
         return;
       }
 

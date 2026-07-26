@@ -692,7 +692,7 @@ export function createGrannyRunGame(ctx) {
       return false;
     },
     onControl(action) {
-      if (action === "UP") {
+      if (action === "UP" || action === "SELECT") {
         return queueJump();
       }
       return false;
