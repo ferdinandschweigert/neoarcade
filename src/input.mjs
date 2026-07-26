@@ -81,31 +81,29 @@ export function getControlHintForGame(game) {
 
 export function shouldShowTouchButtons(controlMode, isTouchDevice, schemeName) {
   const scheme = CONTROL_SCHEMES[schemeName] ?? CONTROL_SCHEMES.none;
-  if (scheme.length === 0) {
+  if (!isTouchDevice || scheme.length === 0) {
     return false;
-  }
-
-  if (controlMode === "buttons" || controlMode === "both") {
-    return true;
   }
 
   if (controlMode === "gestures") {
     return false;
   }
 
-  return isTouchDevice;
+  // auto / buttons / both → on-screen controls only on real touch devices
+  return true;
 }
 
 export function shouldUseGestures(controlMode, isTouchDevice) {
-  if (controlMode === "gestures" || controlMode === "both") {
-    return true;
+  if (!isTouchDevice) {
+    return false;
   }
 
   if (controlMode === "buttons") {
     return false;
   }
 
-  return isTouchDevice;
+  // auto / gestures / both
+  return true;
 }
 
 export function createInputManager(options) {

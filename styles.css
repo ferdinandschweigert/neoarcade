@@ -1132,7 +1132,7 @@ body[data-stage-aspect="landscape"] .stage-shell {
   touch-action: manipulation;
 }
 
-.touch-controls:not(.is-empty) {
+body.is-touch .touch-controls:not(.is-empty) {
   display: grid;
 }
 

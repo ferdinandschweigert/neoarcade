@@ -9,15 +9,14 @@ const CONTAINER_WIDTH = {
   medium: 720,
 };
 
-function detectTouchDevice() {
-  const coarse = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
-  const noHover = window.matchMedia?.("(hover: none)")?.matches ?? false;
-  return (
-    coarse
-    || noHover
-    || navigator.maxTouchPoints > 0
-    || "ontouchstart" in window
-  );
+export function detectTouchDevice(globalObject = globalThis) {
+  const matchMedia = globalObject.matchMedia?.bind(globalObject);
+  const coarse = matchMedia?.("(pointer: coarse)")?.matches ?? false;
+  const noHover = matchMedia?.("(hover: none)")?.matches ?? false;
+  // Phones/tablets: coarse primary pointer or no hover.
+  // Do NOT use maxTouchPoints / ontouchstart alone — many laptops report those
+  // and would incorrectly show on-screen controllers next to keyboard play.
+  return coarse || noHover;
 }
 
 function resolveViewportWidth(width) {
