@@ -9,6 +9,9 @@ const CONTAINER_WIDTH = {
   medium: 720,
 };
 
+const SHELL_FIT_PADDING = 16;
+const SHELL_SCALE_MIN = 0.55;
+
 function detectTouchDevice() {
   const coarse = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
   const noHover = window.matchMedia?.("(hover: none)")?.matches ?? false;
@@ -43,9 +46,38 @@ function resolveContainerWidth(width) {
   return "wide";
 }
 
+function roundScale(value) {
+  return Math.round(value * 1000) / 1000;
+}
+
+export function computeShellScale({
+  shellWidth,
+  shellHeight,
+  viewportWidth,
+  viewportHeight,
+  padding = SHELL_FIT_PADDING,
+  minScale = SHELL_SCALE_MIN,
+  enabled = true,
+} = {}) {
+  if (!enabled || !shellWidth || !shellHeight || !viewportWidth || !viewportHeight) {
+    return 1;
+  }
+
+  const availableWidth = Math.max(1, viewportWidth - padding);
+  const availableHeight = Math.max(1, viewportHeight - padding);
+  const nextScale = Math.min(
+    1,
+    availableWidth / shellWidth,
+    availableHeight / shellHeight,
+  );
+
+  return roundScale(Math.max(minScale, nextScale));
+}
+
 export function createResponsiveLayout({
   root = document.body,
   container = document.querySelector(".app"),
+  shell = document.querySelector(".app-shell"),
   onChange,
 } = {}) {
   const isTouchDevice = detectTouchDevice();
@@ -53,10 +85,34 @@ export function createResponsiveLayout({
 
   let frame = null;
 
+  function applyShellScale() {
+    const playingGame = root.dataset.panel === "game";
+    if (!shell || playingGame) {
+      root.style.setProperty("--shell-scale", "1");
+      return 1;
+    }
+
+    root.style.setProperty("--shell-scale", "1");
+    // Force layout so measurements use the unscaled shell size.
+    void shell.offsetWidth;
+
+    const scale = computeShellScale({
+      shellWidth: shell.offsetWidth,
+      shellHeight: shell.offsetHeight,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+      enabled: true,
+    });
+
+    root.style.setProperty("--shell-scale", String(scale));
+    return scale;
+  }
+
   function readState() {
     const width = window.innerWidth;
     const height = window.innerHeight;
     const containerWidth = container?.clientWidth ?? width;
+    const shellScale = applyShellScale();
 
     return {
       isTouchDevice,
@@ -66,6 +122,7 @@ export function createResponsiveLayout({
       width,
       height,
       containerWidth,
+      shellScale,
     };
   }
 
@@ -74,6 +131,7 @@ export function createResponsiveLayout({
     root.dataset.orientation = state.orientation;
     root.dataset.container = state.container;
     root.dataset.touch = state.isTouchDevice ? "true" : "false";
+    root.dataset.shellScale = String(state.shellScale);
 
     if (container) {
       container.dataset.viewport = state.container;
@@ -97,6 +155,19 @@ export function createResponsiveLayout({
     });
   }
 
+  const panelObserver = typeof MutationObserver !== "undefined"
+    ? new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type === "attributes" && mutation.attributeName === "data-panel") {
+          scheduleUpdate();
+          break;
+        }
+      }
+    })
+    : null;
+
+  panelObserver?.observe(root, { attributes: true, attributeFilter: ["data-panel"] });
+
   window.addEventListener("resize", scheduleUpdate, { passive: true });
   window.addEventListener("orientationchange", scheduleUpdate, { passive: true });
 
@@ -110,6 +181,7 @@ export function createResponsiveLayout({
       update,
       disconnect() {
         observer.disconnect();
+        panelObserver?.disconnect();
         window.removeEventListener("resize", scheduleUpdate);
         window.removeEventListener("orientationchange", scheduleUpdate);
         if (frame !== null) {
@@ -125,6 +197,7 @@ export function createResponsiveLayout({
     isTouchDevice,
     update,
     disconnect() {
+      panelObserver?.disconnect();
       window.removeEventListener("resize", scheduleUpdate);
       window.removeEventListener("orientationchange", scheduleUpdate);
       if (frame !== null) {
