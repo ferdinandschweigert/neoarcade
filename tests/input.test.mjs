@@ -9,12 +9,13 @@ import {
 import { detectTouchDevice } from "../src/ui/responsive.mjs";
 import { createCloverQuestGame } from "../src/games/cloverquest.mjs";
 
-test("auto mode shows touch buttons only on touch devices", () => {
-  assert.equal(shouldShowTouchButtons("auto", true, "dpad"), true);
+test("auto mode uses board gestures without on-screen buttons", () => {
+  assert.equal(shouldShowTouchButtons("auto", true, "dpad"), false);
   assert.equal(shouldShowTouchButtons("auto", false, "dpad"), false);
+  assert.equal(shouldUseGestures("auto", true), true);
 });
 
-test("on-screen buttons never appear on non-touch devices", () => {
+test("on-screen buttons only when explicitly enabled on touch devices", () => {
   assert.equal(shouldShowTouchButtons("buttons", false, "horizontal"), false);
   assert.equal(shouldShowTouchButtons("both", false, "vertical"), false);
   assert.equal(shouldShowTouchButtons("buttons", true, "horizontal"), true);
