@@ -23,6 +23,7 @@ import { createInputManager } from "./input.mjs";
 import { createFeedbackUI } from "./ui/feedback.mjs";
 import { createResponsiveLayout } from "./ui/responsive.mjs";
 import { createTabletopManager } from "./tabletop/tabletop.mjs";
+import { createShareManager } from "./ui/share.mjs";
 import {
   safeStorageGet,
   safeStorageGetJson,
@@ -141,6 +142,18 @@ const tabletopManager = createTabletopManager({
   closeButtonEl: document.querySelector("#tabletop-close-button"),
 });
 tabletopManager.init();
+
+const shareManager = createShareManager({
+  rootEl: document.querySelector("#share-overlay"),
+  openButtonEl: document.querySelector("#share-button"),
+  closeButtonEl: document.querySelector("#share-close-button"),
+  qrEl: document.querySelector("#share-qr"),
+  urlEl: document.querySelector("#share-url"),
+  messageEl: document.querySelector("#share-message"),
+  nativeShareButtonEl: document.querySelector("#share-native-button"),
+  copyButtonEl: document.querySelector("#share-copy-button"),
+});
+shareManager.init();
 
 const layoutManager = createLayoutManager({
   tabButtons: document.querySelectorAll(".app-tab"),

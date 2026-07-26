@@ -1234,7 +1234,14 @@ body.is-touch .touch-controls {
 
 @media (max-width: 520px) {
   .app-shell {
-    overflow: hidden;
+    overflow-x: clip;
+    overflow-y: hidden;
+  }
+
+  .share-button,
+  .tabletop-button {
+    width: 2.2rem;
+    height: 2.2rem;
   }
 
   .app-header {
@@ -1377,6 +1384,168 @@ body.is-touch .touch-controls {
   *::after {
     scroll-behavior: auto !important;
   }
+}
+
+/* --- Share QR / AirDrop --- */
+
+.share-button {
+  display: inline-grid;
+  place-items: center;
+  font-size: 1rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.share-button-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  display: block;
+}
+
+.app-header .app-user {
+  flex-shrink: 0;
+}
+
+.app-header .app-brand {
+  min-width: 0;
+}
+
+body.share-open {
+  overflow: hidden;
+  touch-action: none;
+}
+
+.share-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 33;
+  display: grid;
+  place-items: center;
+  padding:
+    max(0.5rem, var(--safe-top))
+    max(0.5rem, var(--safe-right))
+    max(0.5rem, var(--safe-bottom))
+    max(0.5rem, var(--safe-left));
+  background: rgba(232, 241, 246, 0.96);
+}
+
+.share-overlay.hidden {
+  display: none;
+}
+
+.share-card {
+  width: min(100%, 22rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 1.15rem 1.25rem 1.25rem;
+  border: 10px solid var(--navy);
+  border-radius: 2rem 2rem 2.8rem 2rem;
+  background: var(--lcd-light);
+  color: var(--lcd-ink);
+  box-shadow:
+    -8px 0 0 var(--cyan),
+    8px 0 0 var(--burgundy),
+    0 0 0 8px var(--shell),
+    0 12px 0 var(--navy-dark),
+    0 20px 45px rgba(17, 24, 39, 0.28),
+    inset 0 0 0 5px var(--lcd-mid);
+}
+
+.share-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.share-close-button {
+  width: 2.6rem;
+  height: 2.6rem;
+  min-height: 0;
+  padding: 0;
+  border-radius: 50%;
+  border-color: var(--navy);
+  background: #ffffff;
+  color: var(--navy);
+  box-shadow: 0 3px 0 var(--navy);
+  font-size: 1.35rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.share-copy {
+  margin: 0;
+  color: var(--lcd-muted);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.share-qr {
+  display: grid;
+  place-items: center;
+  margin: 0.15rem auto 0;
+  padding: 0.55rem;
+  width: min(100%, 13.5rem);
+  aspect-ratio: 1;
+  border: 3px solid var(--navy);
+  border-radius: 1rem;
+  background: #ffffff;
+  box-shadow: 0 4px 0 var(--navy-dark);
+}
+
+.share-qr svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.share-url {
+  margin: 0;
+  padding: 0.35rem 0.45rem;
+  border: 2px dashed var(--navy-soft);
+  border-radius: 0.55rem;
+  color: var(--navy);
+  font-size: 0.62rem;
+  line-height: 1.35;
+  word-break: break-all;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.share-actions {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.share-action-primary,
+.share-action-secondary {
+  min-height: 2.45rem;
+  width: 100%;
+  font-size: 0.78rem;
+}
+
+.share-action-primary {
+  color: var(--navy-dark);
+  border-color: var(--cyan-dark);
+  background: var(--cyan);
+  box-shadow: 0 4px 0 var(--cyan-dark);
+}
+
+.share-action-secondary {
+  color: var(--navy-dark);
+  border-color: var(--yellow-dark);
+  background: var(--yellow);
+  box-shadow: 0 4px 0 var(--yellow-dark);
+}
+
+.share-message {
+  min-height: 1rem;
+  margin: 0;
+  color: var(--burgundy-dark);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-align: center;
 }
 
 /* --- Tabletop score counter --- */
