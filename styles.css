@@ -1234,7 +1234,14 @@ body.is-touch .touch-controls {
 
 @media (max-width: 520px) {
   .app-shell {
-    overflow: hidden;
+    overflow-x: clip;
+    overflow-y: hidden;
+  }
+
+  .share-button,
+  .tabletop-button {
+    width: 2.2rem;
+    height: 2.2rem;
   }
 
   .app-header {
