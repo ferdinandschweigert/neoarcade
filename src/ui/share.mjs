@@ -1,7 +1,7 @@
 import { renderSVG } from "../vendor/uqr.mjs";
 
 const DEFAULT_TITLE = "Brain Break Arcade";
-const DEFAULT_TEXT = "Play classic brain-break games together.";
+const DEFAULT_TEXT = "Klassische Brain-Break-Spiele zum gemeinsamen Spielen.";
 
 function getShareUrl() {
   if (typeof location !== "undefined" && location.href) {
@@ -114,7 +114,7 @@ export function createShareManager(config = {}) {
       const svg = qrEl.querySelector("svg");
       if (svg) {
         svg.setAttribute("role", "img");
-        svg.setAttribute("aria-label", `QR code for ${url}`);
+        svg.setAttribute("aria-label", `QR-Code für ${url}`);
       }
     }
     if (nativeShareButtonEl) {
@@ -128,7 +128,7 @@ export function createShareManager(config = {}) {
   async function shareNative() {
     const url = getUrl();
     if (!canNativeShare(url)) {
-      setMessage("Sharing is not available here — copy the link or scan the QR code.");
+      setMessage("Teilen nicht verfügbar — Link kopieren oder QR-Code scannen.");
       return;
     }
     try {
@@ -137,13 +137,13 @@ export function createShareManager(config = {}) {
         text: DEFAULT_TEXT,
         url,
       });
-      setMessage("Shared.");
+      setMessage("Geteilt.");
     } catch (error) {
       if (error && error.name === "AbortError") {
         clearMessage();
         return;
       }
-      setMessage("Could not open share sheet — copy the link or scan the QR code.");
+      setMessage("Teilen fehlgeschlagen — Link kopieren oder QR-Code scannen.");
     }
   }
 
@@ -155,13 +155,13 @@ export function createShareManager(config = {}) {
       } else {
         fallbackCopy(url);
       }
-      setMessage("Link copied.");
+      setMessage("Link kopiert.");
     } catch {
       try {
         fallbackCopy(url);
-        setMessage("Link copied.");
+        setMessage("Link kopiert.");
       } catch {
-        setMessage("Could not copy — select the link below.");
+        setMessage("Kopieren fehlgeschlagen — Link unten markieren.");
       }
     }
   }

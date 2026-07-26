@@ -1382,9 +1382,25 @@ body.is-touch .touch-controls {
 /* --- Share QR / AirDrop --- */
 
 .share-button {
+  display: inline-grid;
+  place-items: center;
   font-size: 1rem;
   line-height: 1;
   flex-shrink: 0;
+}
+
+.share-button-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  display: block;
+}
+
+.app-header .app-user {
+  flex-shrink: 0;
+}
+
+.app-header .app-brand {
+  min-width: 0;
 }
 
 body.share-open {
