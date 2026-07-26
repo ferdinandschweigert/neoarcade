@@ -1384,6 +1384,12 @@ body.is-touch .touch-controls {
 .tabletop-button {
   font-size: 1rem;
   line-height: 1;
+  flex-shrink: 0;
+}
+
+body.tabletop-open {
+  overflow: hidden;
+  touch-action: none;
 }
 
 .tabletop-overlay {
@@ -1392,9 +1398,13 @@ body.is-touch .touch-controls {
   z-index: 32;
   display: grid;
   place-items: center;
-  padding: 0.75rem;
-  background: rgba(232, 241, 246, 0.94);
-  overflow: auto;
+  padding:
+    max(0.5rem, var(--safe-top))
+    max(0.5rem, var(--safe-right))
+    max(0.5rem, var(--safe-bottom))
+    max(0.5rem, var(--safe-left));
+  background: rgba(232, 241, 246, 0.96);
+  overflow: hidden;
 }
 
 .tabletop-overlay.hidden {
@@ -1430,8 +1440,8 @@ body.is-touch .touch-controls {
 }
 
 .tabletop-close-button {
-  width: 2.2rem;
-  height: 2.2rem;
+  width: 2.6rem;
+  height: 2.6rem;
   min-height: 0;
   padding: 0;
   border-radius: 50%;
@@ -1439,8 +1449,9 @@ body.is-touch .touch-controls {
   background: #ffffff;
   color: var(--navy);
   box-shadow: 0 3px 0 var(--navy);
-  font-size: 1.25rem;
+  font-size: 1.35rem;
   line-height: 1;
+  flex-shrink: 0;
 }
 
 .tabletop-body {
@@ -1449,6 +1460,8 @@ body.is-touch .touch-controls {
   overflow: auto;
   margin-top: 0.35rem;
   padding-right: 0.15rem;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .tt-message {
@@ -1457,6 +1470,7 @@ body.is-touch .touch-controls {
   color: var(--burgundy-dark);
   font-size: 0.72rem;
   font-weight: 800;
+  flex-shrink: 0;
 }
 
 .tt-toolbar {
@@ -1465,14 +1479,21 @@ body.is-touch .touch-controls {
   align-items: center;
   gap: 0.45rem 0.65rem;
   margin-bottom: 0.55rem;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 0.15rem 0 0.35rem;
+  background: linear-gradient(var(--lcd-light) 70%, transparent);
 }
 
 .tt-toolbar h2 {
   margin: 0;
-  flex: 1 1 auto;
-  font-size: 1.05rem;
+  flex: 1 1 8rem;
+  min-width: 0;
+  font-size: clamp(0.9rem, 3.8vw, 1.05rem);
   text-transform: uppercase;
   letter-spacing: -0.03em;
+  line-height: 1.15;
 }
 
 .tt-lead,
@@ -1490,10 +1511,24 @@ body.is-touch .touch-controls {
   font-weight: 800;
 }
 
+.tt-badge {
+  display: inline-block;
+  margin: 0 0 0.35rem;
+  padding: 0.15rem 0.45rem;
+  border: 2px solid var(--burgundy-dark);
+  border-radius: 0.4rem;
+  background: var(--burgundy);
+  color: #fff0d1;
+  font-size: 0.62rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
 .tt-game-grid,
 .tt-history-list {
   display: grid;
   gap: 0.7rem;
+  grid-template-columns: 1fr;
 }
 
 .tt-game-card,
@@ -1503,6 +1538,11 @@ body.is-touch .touch-controls {
   border-radius: 1rem;
   background: #ffffff;
   box-shadow: 0 4px 0 var(--cyan);
+}
+
+.tt-history-active {
+  box-shadow: 0 4px 0 var(--burgundy);
+  border-color: var(--burgundy-dark);
 }
 
 .tt-game-card h3,
@@ -1521,8 +1561,8 @@ body.is-touch .touch-controls {
 }
 
 .tabletop-card button {
-  min-height: 2.2rem;
-  padding: 0.4rem 0.75rem;
+  min-height: 2.6rem;
+  padding: 0.45rem 0.85rem;
   border: 3px solid var(--navy);
   border-radius: 0.7rem;
   background: var(--burgundy);
@@ -1532,6 +1572,7 @@ body.is-touch .touch-controls {
   font-weight: 900;
   text-transform: uppercase;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 .tabletop-card button.tt-secondary {
@@ -1601,14 +1642,14 @@ body.is-touch .touch-controls {
 .tt-form input[type="number"],
 .tt-form input[type="text"] {
   width: 100%;
-  min-height: 2.2rem;
-  padding: 0.35rem 0.55rem;
+  min-height: 2.75rem;
+  padding: 0.45rem 0.55rem;
   border: 2px solid var(--lcd-dark);
   border-radius: 0.45rem;
   background: #ffffff;
   color: var(--lcd-ink);
   font: inherit;
-  font-size: 0.85rem;
+  font-size: 1rem;
   font-weight: 700;
   text-transform: none;
 }
@@ -1617,6 +1658,7 @@ body.is-touch .touch-controls {
 .tt-round-grid {
   display: grid;
   gap: 0.55rem;
+  grid-template-columns: 1fr;
 }
 
 .tt-player-round {
@@ -1639,17 +1681,19 @@ body.is-touch .touch-controls {
   align-items: center;
   gap: 0.4rem;
   grid-template-columns: none;
+  min-height: 2.4rem;
 }
 
 .tt-check input {
-  width: auto;
+  width: 1.15rem;
+  height: 1.15rem;
   min-height: 0;
 }
 
 .tt-totals {
   list-style: none;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  grid-template-columns: 1fr;
   gap: 0.4rem;
   margin: 0 0 0.75rem;
   padding: 0;
@@ -1659,11 +1703,11 @@ body.is-touch .touch-controls {
   display: flex;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: 0.45rem 0.55rem;
+  padding: 0.55rem 0.65rem;
   border: 2px solid var(--lcd-dark);
   border-radius: 0.45rem;
   background: #ffffff;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   font-weight: 800;
 }
 
@@ -1673,18 +1717,21 @@ body.is-touch .touch-controls {
   border: 2px solid var(--lcd-dark);
   border-radius: 0.45rem;
   background: #ffffff;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
 }
 
 .tt-score-table {
   width: 100%;
+  min-width: 16rem;
   border-collapse: collapse;
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   font-weight: 800;
 }
 
 .tt-score-table th,
 .tt-score-table td {
-  padding: 0.35rem 0.4rem;
+  padding: 0.45rem 0.5rem;
   border-bottom: 1px solid var(--lcd-mid);
   text-align: center;
   white-space: nowrap;
@@ -1696,6 +1743,18 @@ body.is-touch .touch-controls {
   position: sticky;
   left: 0;
   background: #ffffff;
+  z-index: 1;
+}
+
+.tt-score-table thead th {
+  position: sticky;
+  top: 0;
+  background: #ffffff;
+  z-index: 1;
+}
+
+.tt-score-table thead th:first-child {
+  z-index: 2;
 }
 
 .tt-score-table small {
@@ -1703,9 +1762,9 @@ body.is-touch .touch-controls {
   font-weight: 700;
 }
 
-@media (min-width: 720px) {
-  .tt-game-grid {
-    grid-template-columns: 1fr 1fr;
+@media (min-width: 560px) {
+  .tt-totals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .tt-round-grid {
@@ -1713,16 +1772,73 @@ body.is-touch .touch-controls {
   }
 }
 
+@media (min-width: 720px) {
+  .tt-game-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .tt-totals {
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  }
+}
+
 @media (max-width: 640px) {
+  .tabletop-overlay {
+    padding: 0;
+    place-items: stretch;
+  }
+
   .tabletop-card {
     width: 100%;
-    max-height: calc(100dvh - 1rem);
-    border-width: 6px;
-    border-radius: 1.4rem;
-    padding: 0.9rem;
+    max-width: none;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-width: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding:
+      max(0.85rem, var(--safe-top))
+      max(0.85rem, var(--safe-right))
+      max(1rem, var(--safe-bottom))
+      max(0.85rem, var(--safe-left));
+  }
+
+  .tabletop-card-head .kicker {
+    font-size: 0.7rem;
+  }
+
+  .tt-card-actions,
+  .tt-session-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .tt-session-actions button:last-child:nth-child(odd),
+  .tt-card-actions button:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  .tabletop-card button {
+    width: 100%;
+    justify-self: stretch;
+  }
+
+  .tt-toolbar button {
+    min-height: 2.45rem;
   }
 
   .app-user .user-label {
     display: none;
+  }
+
+  .app-user {
+    gap: 0.4rem;
+  }
+
+  .signin-button,
+  .signout-button {
+    min-height: 2.35rem;
+    padding-inline: 0.65rem;
+    font-size: 0.65rem;
   }
 }

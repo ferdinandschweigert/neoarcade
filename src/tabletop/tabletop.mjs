@@ -18,14 +18,18 @@ export function createTabletopManager(config = {}) {
   const openButtonEl = config.openButtonEl;
   const closeButtonEl = config.closeButtonEl;
 
-  /** @type {"picker" | "rules" | "setup" | "session" | "history"} */
+  /** @type {"picker" | "rules" | "setup" | "session" | "history" | "history-detail"} */
   let view = "picker";
   /** @type {string | null} */
   let rulesGameId = null;
-  /** @type {"picker" | "setup" | "session"} */
+  /** @type {"picker" | "setup" | "session" | "history" | "history-detail"} */
   let rulesReturnView = "picker";
   /** @type {object | null} */
   let activeSession = null;
+  /** @type {object | null} */
+  let viewedSession = null;
+  /** @type {number | null} */
+  let viewedHistoryIndex = null;
   let setupGameId = null;
   let setupNames = [];
   let message = "";
@@ -71,8 +75,11 @@ export function createTabletopManager(config = {}) {
       view = "picker";
       activeSession = null;
     }
+    viewedSession = null;
+    viewedHistoryIndex = null;
     message = "";
     rootEl.classList.remove("hidden");
+    document.body.classList.add("tabletop-open");
     render();
   }
 
@@ -81,6 +88,7 @@ export function createTabletopManager(config = {}) {
       persistActive(activeSession);
     }
     rootEl.classList.add("hidden");
+    document.body.classList.remove("tabletop-open");
   }
 
   function loadStore() {
@@ -141,14 +149,63 @@ export function createTabletopManager(config = {}) {
       return;
     }
     if (action === "history") {
+      viewedSession = null;
+      viewedHistoryIndex = null;
       view = "history";
       message = "";
       render();
       return;
     }
+    if (action === "view-history") {
+      const index = Number(button.dataset.ttIndex);
+      const store = loadStore();
+      const item = store.history?.[index];
+      if (item) {
+        viewedSession = structuredClone(item);
+        viewedHistoryIndex = index;
+        view = "history-detail";
+        message = "";
+        render();
+      }
+      return;
+    }
+    if (action === "view-active") {
+      const store = loadStore();
+      if (store.active) {
+        viewedSession = structuredClone(store.active);
+        viewedHistoryIndex = null;
+        view = "history-detail";
+        message = "";
+        render();
+      }
+      return;
+    }
+    if (action === "delete-history") {
+      const index = Number(button.dataset.ttIndex);
+      const store = loadStore();
+      if (store.history?.[index]) {
+        store.history.splice(index, 1);
+        saveStore(store);
+        viewedSession = null;
+        viewedHistoryIndex = null;
+        view = "history";
+        message = "Partie gelöscht.";
+        render();
+      }
+      return;
+    }
     if (action === "rules" && gameId) {
       rulesGameId = gameId;
-      rulesReturnView = view === "session" ? "session" : view === "setup" ? "setup" : "picker";
+      rulesReturnView =
+        view === "session"
+          ? "session"
+          : view === "setup"
+            ? "setup"
+            : view === "history-detail"
+              ? "history-detail"
+              : view === "history"
+                ? "history"
+                : "picker";
       view = "rules";
       render();
       return;
@@ -173,9 +230,11 @@ export function createTabletopManager(config = {}) {
       return;
     }
     if (action === "finish" && activeSession) {
-      pushHistory(activeSession);
+      const finished = pushHistory(activeSession);
+      viewedSession = structuredClone(finished);
+      viewedHistoryIndex = 0;
       message = "Partie gespeichert.";
-      view = "picker";
+      view = "history-detail";
       render();
       return;
     }
@@ -187,9 +246,13 @@ export function createTabletopManager(config = {}) {
       return;
     }
     if (action === "resume-history") {
-      const index = Number(button.dataset.ttIndex);
+      const index =
+        button.dataset.ttIndex != null
+          ? Number(button.dataset.ttIndex)
+          : viewedHistoryIndex;
       const store = loadStore();
-      const item = store.history?.[index];
+      const item =
+        index == null || Number.isNaN(index) ? null : store.history?.[index];
       if (item) {
         activeSession = {
           ...structuredClone(item),
@@ -197,8 +260,22 @@ export function createTabletopManager(config = {}) {
         };
         delete activeSession.finishedAt;
         persistActive(activeSession);
+        viewedSession = null;
+        viewedHistoryIndex = null;
         view = "session";
         message = "Partie geladen.";
+        render();
+      }
+      return;
+    }
+    if (action === "resume-active") {
+      const store = loadStore();
+      if (store.active) {
+        activeSession = store.active;
+        viewedSession = null;
+        viewedHistoryIndex = null;
+        view = "session";
+        message = "Aktive Partie fortgesetzt.";
         render();
       }
     }
@@ -384,7 +461,11 @@ export function createTabletopManager(config = {}) {
       body.innerHTML = renderSession();
     } else if (view === "history") {
       body.innerHTML = renderHistory();
+    } else if (view === "history-detail") {
+      body.innerHTML = renderHistoryDetail();
     }
+
+    body.scrollTop = 0;
 
     const messageEl = rootEl.querySelector("[data-tt-message]");
     if (messageEl) {
@@ -409,7 +490,7 @@ export function createTabletopManager(config = {}) {
     return `
       <div class="tt-toolbar">
         <h2>Tischspiele</h2>
-        <button type="button" class="tt-secondary" data-tt-action="history">Partien</button>
+        <button type="button" class="tt-secondary" data-tt-action="history">Vergangene</button>
       </div>
       <p class="tt-lead">Wähle ein Spiel, lies die Regeln oder starte eine Partie zum Mitzählen.</p>
       <div class="tt-game-grid">${cards}</div>`;
@@ -490,22 +571,7 @@ export function createTabletopManager(config = {}) {
       return `<p>Spiel fehlt.</p>`;
     }
 
-    const totals = activeSession.players
-      .map((player, index) => {
-        const phase =
-          game.scoreMode === "phase10"
-            ? (player.phase || 1) > 10
-              ? " · fertig"
-              : ` · Phase ${player.phase || 1}`
-            : "";
-        return `<li><strong>${escapeHtml(player.name)}</strong><span>${player.total}${phase}</span></li>`;
-      })
-      .join("");
-
-    const sorted = [...activeSession.players].sort((a, b) =>
-      game.lowerIsBetter ? a.total - b.total : b.total - a.total,
-    );
-    const leader = sorted[0];
+    const { leader, totalsHtml, tableHtml } = renderScoreboard(activeSession, game);
 
     let endHint = "";
     if (game.id === "skyjo" && activeSession.players.some((p) => p.total >= 100)) {
@@ -523,25 +589,6 @@ export function createTabletopManager(config = {}) {
       endHint = `<p class="tt-hint">Jemand hat Phase 10 geschafft — Partie kann beendet werden.</p>`;
     }
 
-    const roundRows = activeSession.rounds
-      .map((round, roundIndex) => {
-        const cells = round.scores
-          .map((score, i) => {
-            let extra = "";
-            if (round.bids) {
-              extra = ` <small>(${round.bids[i]}/${round.tricks[i]})</small>`;
-            }
-            return `<td>${score}${extra}</td>`;
-          })
-          .join("");
-        return `<tr><th>R${roundIndex + 1}</th>${cells}</tr>`;
-      })
-      .join("");
-
-    const headerCells = activeSession.players
-      .map((player) => `<th>${escapeHtml(player.name)}</th>`)
-      .join("");
-
     return `
       <div class="tt-toolbar">
         <button type="button" class="tt-secondary" data-tt-action="picker">Spiele</button>
@@ -550,13 +597,8 @@ export function createTabletopManager(config = {}) {
       </div>
       <p class="tt-lead">Führung: <strong>${escapeHtml(leader.name)}</strong> (${leader.total})</p>
       ${endHint}
-      <ul class="tt-totals">${totals}</ul>
-      <div class="tt-table-wrap">
-        <table class="tt-score-table">
-          <thead><tr><th>Rd</th>${headerCells}</tr></thead>
-          <tbody>${roundRows || `<tr><td colspan="${activeSession.players.length + 1}">Noch keine Runden</td></tr>`}</tbody>
-        </table>
-      </div>
+      ${totalsHtml}
+      ${tableHtml}
       ${renderRoundForm(game, activeSession)}
       <div class="tt-session-actions">
         <button type="button" class="tt-secondary" data-tt-action="undo-round">Undo Runde</button>
@@ -610,17 +652,92 @@ export function createTabletopManager(config = {}) {
     return `<form class="tt-form" data-tt-form="round"><h3>Runde ${session.rounds.length + 1} — Punkte</h3><div class="tt-round-grid">${fields}</div><button type="submit">Runde speichern</button></form>`;
   }
 
+  function renderScoreboard(session, game) {
+    const totals = session.players
+      .map((player) => {
+        const phase =
+          game.scoreMode === "phase10"
+            ? (player.phase || 1) > 10
+              ? " · fertig"
+              : ` · Phase ${player.phase || 1}`
+            : "";
+        return `<li><strong>${escapeHtml(player.name)}</strong><span>${player.total}${phase}</span></li>`;
+      })
+      .join("");
+
+    const sorted = [...session.players].sort((a, b) =>
+      game.lowerIsBetter ? a.total - b.total : b.total - a.total,
+    );
+    const leader = sorted[0];
+
+    const roundRows = (session.rounds || [])
+      .map((round, roundIndex) => {
+        const cells = round.scores
+          .map((score, i) => {
+            let extra = "";
+            if (round.bids) {
+              extra = ` <small>(${round.bids[i]}/${round.tricks[i]})</small>`;
+            }
+            return `<td>${score}${extra}</td>`;
+          })
+          .join("");
+        return `<tr><th>R${roundIndex + 1}</th>${cells}</tr>`;
+      })
+      .join("");
+
+    const headerCells = session.players
+      .map((player) => `<th>${escapeHtml(player.name)}</th>`)
+      .join("");
+
+    return {
+      leader,
+      totalsHtml: `<ul class="tt-totals">${totals}</ul>`,
+      tableHtml: `
+        <div class="tt-table-wrap">
+          <table class="tt-score-table">
+            <thead><tr><th>Rd</th>${headerCells}</tr></thead>
+            <tbody>${
+              roundRows ||
+              `<tr><td colspan="${session.players.length + 1}">Noch keine Runden</td></tr>`
+            }</tbody>
+          </table>
+        </div>`,
+    };
+  }
+
   function renderHistory() {
     const store = loadStore();
     const items = store.history || [];
-    if (items.length === 0) {
+    const active = store.active;
+
+    let activeCard = "";
+    if (active) {
+      const game = getTabletopGame(active.gameId);
+      const scoreLine = (active.players || [])
+        .map((p) => `${escapeHtml(p.name)} ${p.total}`)
+        .join(" · ");
+      activeCard = `
+        <article class="tt-history-card tt-history-active">
+          <p class="tt-badge">Laufend</p>
+          <h3>${escapeHtml(game?.name || active.gameId)}</h3>
+          <p class="tt-meta">${escapeHtml(formatDate(active.startedAt))} · ${active.rounds?.length || 0} Runden</p>
+          <p class="tt-blurb">${scoreLine}</p>
+          <div class="tt-card-actions">
+            <button type="button" class="tt-secondary" data-tt-action="view-active">Anschauen</button>
+            <button type="button" data-tt-action="resume-active">Weiterzählen</button>
+          </div>
+        </article>`;
+    }
+
+    if (!active && items.length === 0) {
       return `
         <div class="tt-toolbar">
           <button type="button" class="tt-secondary" data-tt-action="picker">Zurück</button>
-          <h2>Gespeicherte Partien</h2>
+          <h2>Vergangene Partien</h2>
         </div>
-        <p class="tt-lead">Noch keine Partien gespeichert.</p>`;
+        <p class="tt-lead">Noch keine Partien gespeichert. Beende eine Partie mit „Partie beenden“, dann erscheint sie hier.</p>`;
     }
+
     const list = items
       .map((item, index) => {
         const game = getTabletopGame(item.gameId);
@@ -628,21 +745,88 @@ export function createTabletopManager(config = {}) {
         const scoreLine = (item.players || [])
           .map((p) => `${escapeHtml(p.name)} ${p.total}`)
           .join(" · ");
+        const winner = getLeader(item, game);
         return `
           <article class="tt-history-card">
             <h3>${escapeHtml(game?.name || item.gameId)}</h3>
-            <p class="tt-meta">${escapeHtml(formatDate(when))}</p>
+            <p class="tt-meta">${escapeHtml(formatDate(when))} · ${item.rounds?.length || 0} Runden${
+              winner ? ` · Sieger: ${escapeHtml(winner.name)}` : ""
+            }</p>
             <p class="tt-blurb">${scoreLine}</p>
-            <button type="button" data-tt-action="resume-history" data-tt-index="${index}">Weiterzählen</button>
+            <div class="tt-card-actions">
+              <button type="button" class="tt-secondary" data-tt-action="view-history" data-tt-index="${index}">Anschauen</button>
+              <button type="button" data-tt-action="resume-history" data-tt-index="${index}">Weiterzählen</button>
+            </div>
           </article>`;
       })
       .join("");
+
     return `
       <div class="tt-toolbar">
         <button type="button" class="tt-secondary" data-tt-action="picker">Zurück</button>
-        <h2>Gespeicherte Partien</h2>
+        <h2>Vergangene Partien</h2>
       </div>
-      <div class="tt-history-list">${list}</div>`;
+      <p class="tt-lead">Tippe auf Anschauen, um Ergebnis und alle Runden zu sehen.</p>
+      <div class="tt-history-list">${activeCard}${list}</div>`;
+  }
+
+  function renderHistoryDetail() {
+    if (!viewedSession) {
+      return `
+        <div class="tt-toolbar">
+          <button type="button" class="tt-secondary" data-tt-action="history">Zurück</button>
+          <h2>Partie</h2>
+        </div>
+        <p class="tt-lead">Partie nicht gefunden.</p>`;
+    }
+
+    const game = getTabletopGame(viewedSession.gameId);
+    if (!game) {
+      return `<p>Spiel fehlt.</p><button type="button" data-tt-action="history">Zurück</button>`;
+    }
+
+    const { leader, totalsHtml, tableHtml } = renderScoreboard(viewedSession, game);
+    const when = viewedSession.finishedAt || viewedSession.startedAt || "";
+    const isFinished = viewedSession.status === "finished" || Boolean(viewedSession.finishedAt);
+    const isActiveView = !isFinished && viewedHistoryIndex == null;
+
+    let actions = `
+      <div class="tt-session-actions">
+        <button type="button" class="tt-secondary" data-tt-action="history">Zur Liste</button>`;
+    if (isActiveView) {
+      actions += `<button type="button" data-tt-action="resume-active">Weiterzählen</button>`;
+    } else if (viewedHistoryIndex != null) {
+      actions += `
+        <button type="button" data-tt-action="resume-history" data-tt-index="${viewedHistoryIndex}">Weiterzählen</button>
+        <button type="button" class="tt-danger" data-tt-action="delete-history" data-tt-index="${viewedHistoryIndex}">Löschen</button>`;
+    }
+    actions += `</div>`;
+
+    return `
+      <div class="tt-toolbar">
+        <button type="button" class="tt-secondary" data-tt-action="history">Zurück</button>
+        <h2>${escapeHtml(game.name)}</h2>
+        <button type="button" class="tt-secondary" data-tt-action="rules" data-tt-game="${game.id}">Regeln</button>
+      </div>
+      <p class="tt-meta">${isFinished ? "Beendet" : "Laufend"} · ${escapeHtml(formatDate(when))} · ${viewedSession.rounds?.length || 0} Runden</p>
+      <p class="tt-lead">${
+        leader
+          ? `${isFinished ? "Sieger" : "Führung"}: <strong>${escapeHtml(leader.name)}</strong> (${leader.total})`
+          : ""
+      }</p>
+      ${totalsHtml}
+      ${tableHtml}
+      ${actions}`;
+  }
+
+  function getLeader(session, game) {
+    if (!session?.players?.length || !game) {
+      return null;
+    }
+    const sorted = [...session.players].sort((a, b) =>
+      game.lowerIsBetter ? a.total - b.total : b.total - a.total,
+    );
+    return sorted[0] || null;
   }
 
   // Keep player name fields in sync when count changes on setup form
