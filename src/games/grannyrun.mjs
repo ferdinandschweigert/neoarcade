@@ -1,11 +1,20 @@
 import { CANVAS_SIZE, clearCanvas, clamp, drawDot } from "./shared.mjs";
 import { createLcdSpriteAtlas, drawLcdSprite } from "./lcdSprites.mjs";
+import {
+  WORLDS,
+  SHOP_ITEMS,
+  getLevel,
+  levelCount,
+} from "./grannyLevels.mjs";
+import { STORAGE_KEYS, safeStorageGetJson, safeStorageSetJson } from "../storage.mjs";
 
 const PLAYER_SCREEN_X = 108;
 const PLAYER_W = 28;
 const PLAYER_H = 40;
 const GROUND_BASE = CANVAS_SIZE - 72;
 const FULL_TURN = Math.PI * 2;
+const STAR_BONUS = [0, 40, 90, 160];
+
 const grannyItemSprites = createLcdSpriteAtlas(
   new URL("../../assets/granny-rooftop-sprites-v2.png", import.meta.url).href,
 );
@@ -13,7 +22,7 @@ const grannyAnimationSprites = createLcdSpriteAtlas(
   new URL("../../assets/granny-rooftop-animation-v2.png", import.meta.url).href,
 );
 
-function drawGrannyFrame(ctx, column, row, x, y, width, height) {
+function drawGrannyFrame(ctx, column, row, x, y, width, height, filter = "none") {
   const atlas = grannyAnimationSprites;
   if (!atlas?.complete || !atlas.naturalWidth || !atlas.naturalHeight) {
     return false;
@@ -26,8 +35,10 @@ function drawGrannyFrame(ctx, column, row, x, y, width, height) {
   const sourceY = row * cellHeight + cellHeight * topTrim;
   const sourceHeight = cellHeight * (1 - topTrim - bottomTrim);
   const smoothing = ctx.imageSmoothingEnabled;
+  const previousFilter = ctx.filter;
 
   ctx.imageSmoothingEnabled = false;
+  ctx.filter = filter;
   ctx.drawImage(
     atlas,
     column * cellWidth,
@@ -40,6 +51,7 @@ function drawGrannyFrame(ctx, column, row, x, y, width, height) {
     height,
   );
   ctx.imageSmoothingEnabled = smoothing;
+  ctx.filter = previousFilter;
   return true;
 }
 
@@ -48,69 +60,138 @@ function uprightAngleError(angle) {
   return Math.min(normalized, FULL_TURN - normalized);
 }
 
+function defaultProgress() {
+  return {
+    levelIndex: 0,
+    coinsBank: 0,
+    totalScore: 0,
+    starsByLevel: Array.from({ length: levelCount() }, () => 0),
+    inventory: { helmet: 0, banana: 0, baseball: 0 },
+    unlockedStanley: false,
+    useStanley: false,
+  };
+}
+
+function loadProgress() {
+  const raw = safeStorageGetJson(STORAGE_KEYS.GRANNY_PROGRESS, null);
+  if (!raw || typeof raw !== "object") {
+    return defaultProgress();
+  }
+
+  const base = defaultProgress();
+  return {
+    levelIndex: clamp(Number(raw.levelIndex) || 0, 0, levelCount() - 1),
+    coinsBank: Math.max(0, Math.floor(Number(raw.coinsBank) || 0)),
+    totalScore: Math.max(0, Math.floor(Number(raw.totalScore) || 0)),
+    starsByLevel: Array.from({ length: levelCount() }, (_, index) => {
+      const value = Array.isArray(raw.starsByLevel) ? Number(raw.starsByLevel[index]) || 0 : 0;
+      return clamp(value, 0, 3);
+    }),
+    inventory: {
+      helmet: Math.max(0, Math.floor(Number(raw.inventory?.helmet) || 0)),
+      banana: Math.max(0, Math.floor(Number(raw.inventory?.banana) || 0)),
+      baseball: Math.max(0, Math.floor(Number(raw.inventory?.baseball) || 0)),
+    },
+    unlockedStanley: Boolean(raw.unlockedStanley) || base.unlockedStanley,
+    useStanley: Boolean(raw.useStanley) && (Boolean(raw.unlockedStanley) || base.unlockedStanley),
+  };
+}
+
+function saveProgress(progress) {
+  safeStorageSetJson(STORAGE_KEYS.GRANNY_PROGRESS, progress);
+}
+
 export function createGrannyRunGame(ctx) {
   const difficultyPresets = {
     easy: {
-      gravity: 0.55,
-      jumpVelocity: -10.8,
-      runSpeed: 4.2,
-      speedGain: 0.75,
-      gapChance: 0.18,
-      hookChance: 0.32,
-      appleChance: 0.45,
+      gravity: 0.52,
+      jumpVelocity: -10.4,
+      runSpeed: 4.0,
+      speedGain: 0.85,
     },
     normal: {
-      gravity: 0.62,
-      jumpVelocity: -11.4,
-      runSpeed: 4.8,
-      speedGain: 0.9,
-      gapChance: 0.24,
-      hookChance: 0.38,
-      appleChance: 0.4,
+      gravity: 0.6,
+      jumpVelocity: -11.2,
+      runSpeed: 4.6,
+      speedGain: 1.05,
     },
     hard: {
       gravity: 0.68,
-      jumpVelocity: -12,
-      runSpeed: 5.4,
-      speedGain: 1.05,
-      gapChance: 0.3,
-      hookChance: 0.42,
-      appleChance: 0.35,
+      jumpVelocity: -11.8,
+      runSpeed: 5.2,
+      speedGain: 1.2,
     },
   };
 
   let difficulty = "normal";
   let bestScore = 0;
-  let state = createState();
+  let progress = loadProgress();
+  let state = createShopState("Welcome to Granny Rooftop — chase the thief!");
 
   function preset() {
     return difficultyPresets[difficulty] || difficultyPresets.normal;
   }
 
-  function createState() {
-    const cfg = preset();
-    const initial = {
-      status: "running",
-      score: 0,
-      apples: 0,
-      swings: 0,
+  function createShopState(message) {
+    return {
+      status: "shop",
+      phase: "shop",
+      message,
+      shopIndex: 0,
+      score: progress.totalScore,
+      levelIndex: progress.levelIndex,
+      coinsBank: progress.coinsBank,
+      inventory: { ...progress.inventory },
+      starsEarned: 0,
+      applesGranny: 0,
+      applesThief: 0,
       flips: 0,
       perfectLandings: 0,
       crashes: 0,
-      distance: 0,
+      feedbackTimer: 0,
+      landingFeedback: "",
+    };
+  }
+
+  function createLevelState(levelIndex) {
+    const cfg = preset();
+    const level = getLevel(levelIndex);
+    const startPlatform = level.platforms[0];
+    const startTop = startPlatform.y - startPlatform.height;
+
+    return {
+      status: "running",
+      phase: "run",
+      level,
+      levelIndex,
+      score: progress.totalScore,
+      runScore: 0,
+      coinsBank: progress.coinsBank,
+      coinsRun: 0,
+      inventory: { ...progress.inventory },
+      helmetActive: progress.inventory.helmet > 0,
+      bananas: progress.inventory.banana,
+      baseballs: progress.inventory.baseball,
+      applesGranny: 0,
+      applesThief: 0,
+      starsEarned: 0,
+      flips: 0,
+      perfectLandings: 0,
+      crashes: 0,
       speed: cfg.runSpeed,
       scrollX: 0,
-      worldEnd: 0,
-      playerY: GROUND_BASE - PLAYER_H,
+      playerY: startTop - PLAYER_H,
       playerVy: 0,
       onGround: true,
       jumpQueued: false,
+      caneHeld: false,
+      canePulse: false,
       mode: "run",
       swingAnchor: null,
       swingRadius: 0,
       swingAngle: 0,
       swingVelocity: 0,
-      facing: 1,
+      swingFrames: 0,
       animationClock: 0,
       spinAngle: 0,
       spinInputTimer: 0,
@@ -120,94 +201,42 @@ export function createGrannyRunGame(ctx) {
       landingTimer: 0,
       crashTimer: 0,
       crashAngle: 0,
-      feedbackTimer: 0,
-      landingFeedback: "",
-      platforms: [],
-      hooks: [],
-      pickups: [],
-      spawnCooldown: 0,
+      feedbackTimer: 90,
+      landingFeedback: `${level.name} — grab the apples before the thief!`,
+      projectiles: [],
+      peels: [],
+      thief: createThief(level, cfg),
+      message: "",
     };
+  }
 
-    initial.platforms.push({
-      x: 0,
-      y: GROUND_BASE,
-      width: CANVAS_SIZE * 1.5,
-      height: 72,
-      tone: "#5c6b78",
-      chimney: false,
-    });
-    initial.playerY = platformTop(initial.platforms[0]) - PLAYER_H;
-    initial.worldEnd = initial.platforms[0].width;
-
-    return initial;
+  function createThief(level, cfg) {
+    const startPlatform = level.platforms[0];
+    const startTop = startPlatform.y - startPlatform.height;
+    return {
+      x: 48,
+      y: startTop - PLAYER_H,
+      vy: 0,
+      speed: level.thiefPace * (cfg.runSpeed / 4.6),
+      onGround: true,
+      mode: "run",
+      swingAnchor: null,
+      swingRadius: 0,
+      swingAngle: 0,
+      swingVelocity: 0,
+      spinAngle: 0,
+      slowTimer: 0,
+      animationClock: 0,
+    };
   }
 
   function platformTop(platform) {
     return platform.y - platform.height;
   }
 
-  function ensureWorld(minWorldX) {
-    while (state.worldEnd < minWorldX + CANVAS_SIZE * 2) {
-      extendWorld();
-    }
-  }
-
-  function extendWorld() {
-    const cfg = preset();
-    const start = state.worldEnd;
-    const previous = state.platforms[state.platforms.length - 1];
-    const width = 70 + Math.floor(Math.random() * 90);
-    const height = 34 + Math.floor(Math.random() * 28);
-    const previousTop = previous ? platformTop(previous) : GROUND_BASE - 54;
-    const nextTop = clamp(
-      previousTop + Math.floor(Math.random() * 49) - 24,
-      GROUND_BASE - 92,
-      GROUND_BASE - 30,
-    );
-    const y = nextTop + height;
-
-    state.platforms.push({
-      x: start,
-      y,
-      width,
-      height,
-      tone: Math.random() < 0.5 ? "#5c6b78" : "#4a5864",
-      chimney: Math.random() < 0.35,
-    });
-
-    const gap = Math.random() < cfg.gapChance ? 42 + Math.random() * 38 : 0;
-    state.worldEnd = start + width + gap;
-
-    const platformTopY = y - height;
-
-    if (Math.random() < cfg.hookChance) {
-      const hookX = start + width * 0.35 + Math.random() * width * 0.35;
-      state.hooks.push({
-        x: hookX,
-        y: platformTopY - 58 - Math.random() * 42,
-        radius: 14,
-        used: false,
-      });
-    }
-
-    if (Math.random() < cfg.appleChance) {
-      state.pickups.push({
-        x: start + 18 + Math.random() * Math.max(20, width - 36),
-        y: platformTopY - 18,
-        radius: 9,
-        taken: false,
-      });
-    }
-  }
-
-  function getPlayerWorldX() {
-    return state.scrollX + PLAYER_SCREEN_X;
-  }
-
-  function getGroundYAt(worldX) {
+  function getGroundYAt(worldX, platforms) {
     let best = null;
-
-    for (const platform of state.platforms) {
+    for (const platform of platforms) {
       if (worldX >= platform.x && worldX <= platform.x + platform.width) {
         const top = platformTop(platform);
         if (best === null || top < best) {
@@ -215,21 +244,38 @@ export function createGrannyRunGame(ctx) {
         }
       }
     }
-
     return best;
   }
 
-  function tryLatchHook() {
-    if (state.mode === "swing") {
-      releaseSwing();
-      return true;
+  function rampBoostAt(worldX, feetY, ramps) {
+    for (const ramp of ramps) {
+      if (worldX < ramp.x || worldX > ramp.x + ramp.width) {
+        continue;
+      }
+      const t = (worldX - ramp.x) / ramp.width;
+      const rampTop = ramp.y - ramp.rise * t;
+      if (Math.abs(feetY - rampTop) < 16) {
+        return {
+          top: rampTop,
+          launch: 0.35 + ramp.rise * 0.045,
+        };
+      }
     }
+    return null;
+  }
 
-    const worldX = getPlayerWorldX();
-    const latchY = state.playerY + PLAYER_H * 0.35;
+  function getPlayerWorldX() {
+    return state.scrollX + PLAYER_SCREEN_X;
+  }
 
-    for (const hook of state.hooks) {
-      if (hook.used) {
+  function tryLatchHook(forThief = false) {
+    const worldX = forThief ? state.thief.x : getPlayerWorldX();
+    const bodyY = forThief ? state.thief.y : state.playerY;
+    const latchY = bodyY + PLAYER_H * 0.35;
+    const hooks = state.level.hooks;
+
+    for (const hook of hooks) {
+      if (!forThief && hook.used) {
         continue;
       }
 
@@ -237,16 +283,30 @@ export function createGrannyRunGame(ctx) {
       const dy = hook.y - latchY;
       const dist = Math.hypot(dx, dy);
 
-      if (dist < 46) {
-        hook.used = true;
-        state.mode = "swing";
-        state.swingAnchor = hook;
-        state.swingRadius = Math.max(48, dist);
-        state.swingAngle = Math.atan2(latchY - hook.y, worldX - hook.x);
-        state.swingVelocity = state.speed / Math.max(42, state.swingRadius);
-        state.onGround = false;
-        state.playerVy = 0;
-        state.swings += 1;
+      if (dist < 48) {
+        if (!forThief) {
+          hook.used = true;
+          state.mode = "swing";
+          state.swingAnchor = hook;
+          state.swingRadius = Math.max(48, dist);
+          state.swingAngle = Math.atan2(latchY - hook.y, worldX - hook.x);
+          state.swingVelocity = state.speed / Math.max(42, state.swingRadius);
+          state.swingFrames = 0;
+          state.onGround = false;
+          state.playerVy = 0;
+          state.runScore += 8;
+          state.landingFeedback = "Cane hooked!";
+          state.feedbackTimer = 40;
+        } else {
+          const thief = state.thief;
+          thief.mode = "swing";
+          thief.swingAnchor = hook;
+          thief.swingRadius = Math.max(48, dist);
+          thief.swingAngle = Math.atan2(latchY - hook.y, worldX - hook.x);
+          thief.swingVelocity = thief.speed / Math.max(42, thief.swingRadius);
+          thief.onGround = false;
+          thief.vy = 0;
+        }
         return true;
       }
     }
@@ -254,7 +314,24 @@ export function createGrannyRunGame(ctx) {
     return false;
   }
 
-  function releaseSwing() {
+  function releaseSwing(forThief = false) {
+    if (forThief) {
+      const thief = state.thief;
+      if (thief.mode !== "swing" || !thief.swingAnchor) {
+        return;
+      }
+
+      const anchor = thief.swingAnchor;
+      const tangent = thief.swingVelocity * thief.swingRadius;
+      thief.vy = -Math.cos(thief.swingAngle) * tangent;
+      const launchVx = Math.sin(thief.swingAngle) * tangent * 0.35;
+      thief.speed = clamp(thief.speed + launchVx * 0.08, preset().runSpeed * 0.7, 10);
+      thief.mode = "air";
+      thief.y = anchor.y + Math.sin(thief.swingAngle) * thief.swingRadius - PLAYER_H;
+      thief.swingAnchor = null;
+      return;
+    }
+
     if (state.mode !== "swing" || !state.swingAnchor) {
       return;
     }
@@ -263,14 +340,13 @@ export function createGrannyRunGame(ctx) {
     const tangent = state.swingVelocity * state.swingRadius;
     state.playerVy = -Math.cos(state.swingAngle) * tangent;
     const launchVx = Math.sin(state.swingAngle) * tangent * 0.35;
-    state.speed = clamp(state.speed + launchVx * 0.08, preset().runSpeed, 9.5);
+    state.speed = clamp(state.speed + launchVx * 0.08, preset().runSpeed * 0.7, 10);
     state.mode = "air";
+    state.playerY = anchor.y + Math.sin(state.swingAngle) * state.swingRadius - PLAYER_H;
     state.swingAnchor = null;
     state.spinAngle = 0;
     state.currentJumpFlips = 0;
     state.spinInputTimer = 0;
-    state.score += 8;
-    state.playerY = anchor.y + Math.sin(state.swingAngle) * state.swingRadius - PLAYER_H;
   }
 
   function queueJump() {
@@ -282,17 +358,8 @@ export function createGrannyRunGame(ctx) {
       return true;
     }
 
-    if (state.mode === "swing") {
-      releaseSwing();
-      return true;
-    }
-
     if (state.onGround) {
       state.jumpQueued = true;
-      return true;
-    }
-
-    if (tryLatchHook()) {
       return true;
     }
 
@@ -300,29 +367,142 @@ export function createGrannyRunGame(ctx) {
     return true;
   }
 
+  function pressCane() {
+    if (state.status !== "running") {
+      return false;
+    }
+
+    state.caneHeld = true;
+    state.canePulse = true;
+
+    if (state.mode === "swing") {
+      return true;
+    }
+
+    if (tryLatchHook(false)) {
+      return true;
+    }
+
+    if (state.baseballs > 0) {
+      throwBaseball();
+      return true;
+    }
+
+    if (state.bananas > 0) {
+      dropBanana();
+      return true;
+    }
+
+    return true;
+  }
+
+  function releaseCane() {
+    state.caneHeld = false;
+    if (state.status === "running" && state.mode === "swing") {
+      releaseSwing(false);
+      return true;
+    }
+    return true;
+  }
+
+  function throwBaseball() {
+    if (state.baseballs <= 0) {
+      return;
+    }
+
+    state.baseballs -= 1;
+    progress.inventory.baseball = Math.max(0, progress.inventory.baseball - 1);
+    state.inventory.baseball = progress.inventory.baseball;
+    saveProgress(progress);
+
+    const worldX = getPlayerWorldX();
+    state.projectiles.push({
+      x: worldX + 24,
+      y: state.playerY + 16,
+      vx: state.speed + 6.5,
+      vy: -1.2,
+      life: 70,
+    });
+    state.landingFeedback = "Baseball away!";
+    state.feedbackTimer = 36;
+  }
+
+  function dropBanana() {
+    if (state.bananas <= 0) {
+      return;
+    }
+
+    state.bananas -= 1;
+    progress.inventory.banana = Math.max(0, progress.inventory.banana - 1);
+    state.inventory.banana = progress.inventory.banana;
+    saveProgress(progress);
+
+    const worldX = getPlayerWorldX();
+    state.peels.push({
+      x: worldX - 18,
+      y: state.playerY + PLAYER_H - 8,
+      used: false,
+    });
+    state.landingFeedback = "Banana peel dropped!";
+    state.feedbackTimer = 36;
+  }
+
+  function spawnCrashCoins(worldX, groundY) {
+    const drops = 3 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < drops; i += 1) {
+      state.level.coins.push({
+        x: worldX - 10 + i * 14,
+        y: groundY - 14,
+        radius: 7,
+        taken: false,
+        dropped: true,
+      });
+    }
+  }
+
   function gradeLanding() {
     const angleError = uprightAngleError(state.spinAngle);
     const completedFlips = state.currentJumpFlips;
+    const worldX = getPlayerWorldX();
+    const ground = getGroundYAt(worldX, state.level.platforms);
 
     state.landingTimer = 8;
 
-    if (completedFlips > 0 && angleError <= 0.52) {
-      const bonus = 12 + completedFlips * 6;
+    if (completedFlips > 0 && angleError <= 0.95) {
+      const bonus = 14 + completedFlips * 8;
       state.perfectLandings += 1;
-      state.score += bonus;
-      state.speed = Math.min(9.5, state.speed + 0.9);
+      state.runScore += bonus;
+      state.speed = Math.min(10.2, state.speed + 1.15 * preset().speedGain);
       state.landingFeedback = `Perfect landing! +${bonus}`;
       state.feedbackTimer = 72;
-    } else if (angleError >= 1.15) {
+    } else if (angleError >= 1.05) {
       state.crashes += 1;
-      state.crashTimer = 30;
+      state.crashTimer = 32;
       state.crashAngle = state.spinAngle;
-      state.speed = Math.max(preset().runSpeed * 0.58, state.speed * 0.64);
-      state.score = Math.max(0, state.score - 5);
-      state.landingFeedback = "Rough landing — Granny is back on her skates!";
-      state.feedbackTimer = 72;
+
+      if (state.helmetActive || progress.inventory.helmet > 0) {
+        if (progress.inventory.helmet > 0) {
+          progress.inventory.helmet -= 1;
+          state.inventory.helmet = progress.inventory.helmet;
+          saveProgress(progress);
+        }
+        state.helmetActive = progress.inventory.helmet > 0;
+        state.speed = Math.max(preset().runSpeed * 0.85, state.speed * 0.9);
+        state.landingFeedback = "Helmet saved the coins!";
+        state.feedbackTimer = 72;
+      } else {
+        state.speed = Math.max(preset().runSpeed * 0.55, state.speed * 0.58);
+        state.runScore = Math.max(0, state.runScore - 6);
+        if (ground !== null) {
+          spawnCrashCoins(worldX, ground);
+        }
+        state.landingFeedback = "Rough landing — coins spilled!";
+        state.feedbackTimer = 72;
+      }
+
+      smashNearbyBreakables(worldX, state.playerY + PLAYER_H, 34);
     } else if (completedFlips > 0) {
-      state.score += completedFlips * 3;
+      state.runScore += completedFlips * 4;
       state.landingFeedback = "Clean landing";
       state.feedbackTimer = 42;
     }
@@ -333,11 +513,53 @@ export function createGrannyRunGame(ctx) {
     state.currentJumpFlips = 0;
   }
 
-  function collidePlatforms() {
+  function smashNearbyBreakables(worldX, y, radius) {
+    for (const prop of state.level.breakables) {
+      if (prop.broken) {
+        continue;
+      }
+      const cx = prop.x + prop.width / 2;
+      const cy = prop.y + prop.height / 2;
+      if (Math.hypot(cx - worldX, cy - y) < radius) {
+        smashBreakable(prop);
+      }
+    }
+  }
+
+  function smashBreakable(prop) {
+    if (prop.broken) {
+      return;
+    }
+    prop.broken = true;
+    state.runScore += prop.kind === "window" ? 18 : 12;
+    state.level.coins.push({
+      x: prop.x + prop.width / 2,
+      y: prop.y - 8,
+      radius: 7,
+      taken: false,
+      dropped: true,
+    });
+    state.landingFeedback = prop.kind === "window" ? "Window smashed!" : "Prop smashed!";
+    state.feedbackTimer = 40;
+  }
+
+  function collidePlayer() {
     const worldX = getPlayerWorldX();
     const feet = state.playerY + PLAYER_H;
-    const ground = getGroundYAt(worldX);
+    const ground = getGroundYAt(worldX, state.level.platforms);
+    const ramp = rampBoostAt(worldX, feet, state.level.ramps);
     const wasAirborne = !state.onGround && state.mode !== "crash";
+
+    if (ramp && state.playerVy >= -1) {
+      state.playerY = ramp.top - PLAYER_H;
+      if (state.onGround || state.playerVy >= 0) {
+        state.playerVy = -ramp.launch;
+        state.onGround = false;
+        state.mode = "air";
+        state.speed = Math.min(10.2, state.speed + 0.35);
+      }
+      return;
+    }
 
     if (ground !== null && state.playerVy >= 0 && feet >= ground - 2 && feet <= ground + 18) {
       state.playerY = ground - PLAYER_H;
@@ -351,46 +573,260 @@ export function createGrannyRunGame(ctx) {
     }
 
     state.onGround = false;
-    if (state.mode === "run" && !state.onGround) {
+    if (state.mode === "run") {
       state.mode = "air";
     }
   }
 
   function collectPickups() {
     const worldX = getPlayerWorldX();
+    const bodyY = state.playerY + PLAYER_H * 0.45;
 
-    for (const pickup of state.pickups) {
+    for (const apple of state.level.apples) {
+      if (apple.takenBy) {
+        continue;
+      }
+      if (Math.hypot(apple.x - worldX, apple.y - bodyY) < apple.radius + 18) {
+        apple.takenBy = "granny";
+        state.applesGranny += 1;
+        state.runScore += 25;
+        state.landingFeedback = `Apple secured! (${state.applesGranny}/3)`;
+        state.feedbackTimer = 50;
+      }
+    }
+
+    for (const pickup of state.level.coins) {
       if (pickup.taken) {
         continue;
       }
-
-      const dx = pickup.x - worldX;
-      const dy = pickup.y - (state.playerY + PLAYER_H * 0.45);
-      if (Math.hypot(dx, dy) < pickup.radius + 18) {
+      if (Math.hypot(pickup.x - worldX, pickup.y - bodyY) < pickup.radius + 16) {
         pickup.taken = true;
-        state.apples += 1;
-        state.score += 15;
+        state.coinsRun += 1;
+        state.runScore += 4;
       }
     }
+  }
+
+  function thiefCollectApples() {
+    const bodyY = state.thief.y + PLAYER_H * 0.45;
+    for (const apple of state.level.apples) {
+      if (apple.takenBy) {
+        continue;
+      }
+      if (Math.hypot(apple.x - state.thief.x, apple.y - bodyY) < apple.radius + 16) {
+        apple.takenBy = "thief";
+        state.applesThief += 1;
+        state.landingFeedback = "Thief stole an apple!";
+        state.feedbackTimer = 50;
+      }
+    }
+  }
+
+  function updateProjectiles() {
+    for (const shot of state.projectiles) {
+      shot.x += shot.vx;
+      shot.y += shot.vy;
+      shot.vy += 0.12;
+      shot.life -= 1;
+
+      if (Math.hypot(shot.x - state.thief.x, shot.y - (state.thief.y + 16)) < 28) {
+        state.thief.slowTimer = Math.max(state.thief.slowTimer, 70);
+        shot.life = 0;
+        state.landingFeedback = "Thief tagged!";
+        state.feedbackTimer = 40;
+      }
+
+      for (const prop of state.level.breakables) {
+        if (prop.broken) {
+          continue;
+        }
+        if (
+          shot.x > prop.x
+          && shot.x < prop.x + prop.width
+          && shot.y > prop.y
+          && shot.y < prop.y + prop.height
+        ) {
+          smashBreakable(prop);
+          shot.life = 0;
+        }
+      }
+    }
+
+    state.projectiles = state.projectiles.filter((shot) => shot.life > 0);
+  }
+
+  function updatePeels() {
+    for (const peel of state.peels) {
+      if (peel.used) {
+        continue;
+      }
+      if (Math.abs(state.thief.x - peel.x) < 22 && Math.abs(state.thief.y + PLAYER_H - peel.y) < 28) {
+        peel.used = true;
+        state.thief.slowTimer = Math.max(state.thief.slowTimer, 90);
+        state.landingFeedback = "Thief slipped!";
+        state.feedbackTimer = 40;
+      }
+    }
+  }
+
+  function gapAhead(worldX, platforms, look = 52) {
+    const here = getGroundYAt(worldX, platforms);
+    const ahead = getGroundYAt(worldX + look, platforms);
+    return here !== null && ahead === null;
+  }
+
+  function updateThief() {
+    const thief = state.thief;
+    const cfg = preset();
+    const level = state.level;
+    thief.animationClock += 0.16;
+
+    if (thief.slowTimer > 0) {
+      thief.slowTimer -= 1;
+    }
+
+    const pace = level.thiefPace * (cfg.runSpeed / 4.6) * (thief.slowTimer > 0 ? 0.45 : 1);
+
+    if (thief.mode === "swing" && thief.swingAnchor) {
+      const anchor = thief.swingAnchor;
+      thief.swingVelocity += cfg.gravity / Math.max(36, thief.swingRadius);
+      thief.swingAngle += thief.swingVelocity;
+      thief.x = anchor.x + Math.cos(thief.swingAngle) * thief.swingRadius;
+      thief.y = anchor.y + Math.sin(thief.swingAngle) * thief.swingRadius - PLAYER_H;
+      if (thief.swingAngle > 0.2 && thief.swingVelocity > 0) {
+        releaseSwing(true);
+      }
+    } else {
+      if (thief.onGround && gapAhead(thief.x, level.platforms, 46)) {
+        thief.vy = cfg.jumpVelocity * 0.92;
+        thief.onGround = false;
+        thief.mode = "air";
+      } else if (!thief.onGround && thief.mode === "air") {
+        tryLatchHook(true);
+      }
+
+      if (thief.mode !== "swing") {
+        thief.vy += cfg.gravity;
+        thief.y += thief.vy;
+        thief.x += pace;
+
+        const feet = thief.y + PLAYER_H;
+        const ground = getGroundYAt(thief.x, level.platforms);
+        if (ground !== null && thief.vy >= 0 && feet >= ground - 2 && feet <= ground + 20) {
+          thief.y = ground - PLAYER_H;
+          thief.vy = 0;
+          thief.onGround = true;
+          thief.mode = "run";
+          thief.spinAngle = 0;
+        } else {
+          thief.onGround = false;
+          if (thief.mode === "run") {
+            thief.mode = "air";
+          }
+        }
+      }
+    }
+
+    thiefCollectApples();
   }
 
   function checkFall() {
     if (state.playerY > CANVAS_SIZE + 40) {
-      state.status = "game_over";
-      bestScore = Math.max(bestScore, Math.floor(state.distance));
+      failLevel("Granny fell! Restart to retry this rooftop.");
     }
   }
 
-  function pruneWorld() {
-    const minX = state.scrollX - 120;
-    state.platforms = state.platforms.filter((platform) => platform.x + platform.width > minX);
-    state.hooks = state.hooks.filter((hook) => hook.x > minX - 40);
-    state.pickups = state.pickups.filter((pickup) => pickup.x > minX - 40 || !pickup.taken);
+  function failLevel(message) {
+    state.status = "failed";
+    state.phase = "failed";
+    state.landingFeedback = message;
+    state.feedbackTimer = 120;
+    bestScore = Math.max(bestScore, progress.totalScore);
+  }
+
+  function clearLevel() {
+    const stars = state.applesGranny;
+    state.starsEarned = stars;
+    state.status = "cleared";
+    state.phase = "cleared";
+
+    const starBonus = STAR_BONUS[stars] || 0;
+    const gained = state.runScore + starBonus;
+    progress.totalScore += gained;
+    progress.coinsBank += state.coinsRun;
+    progress.starsByLevel[state.levelIndex] = Math.max(
+      progress.starsByLevel[state.levelIndex] || 0,
+      stars,
+    );
+
+    if (state.levelIndex >= 7) {
+      progress.unlockedStanley = true;
+    }
+
+    if (state.levelIndex >= levelCount() - 1) {
+      state.status = "complete";
+      state.phase = "complete";
+      state.landingFeedback = `Campaign clear! ${stars}★ · +${gained} pts`;
+    } else {
+      progress.levelIndex = Math.min(levelCount() - 1, state.levelIndex + 1);
+      state.landingFeedback = `${stars}★ · +${gained} pts · Shop unlocks next`;
+    }
+
+    state.score = progress.totalScore;
+    state.coinsBank = progress.coinsBank;
+    saveProgress(progress);
+    bestScore = Math.max(bestScore, progress.totalScore);
+    state.feedbackTimer = 160;
+  }
+
+  function enterShop(message) {
+    state = createShopState(message);
+  }
+
+  function startLevel(levelIndex) {
+    progress.levelIndex = clamp(levelIndex, 0, levelCount() - 1);
+    saveProgress(progress);
+    state = createLevelState(progress.levelIndex);
+  }
+
+  function buyShopItem() {
+    const item = SHOP_ITEMS[state.shopIndex];
+    if (!item) {
+      return false;
+    }
+
+    if (item.id === "continue") {
+      if (progress.levelIndex >= levelCount()) {
+        enterShop("Campaign finished — restart to replay from the yard.");
+        return true;
+      }
+      startLevel(progress.levelIndex);
+      return true;
+    }
+
+    if (progress.coinsBank < item.cost) {
+      state.message = `Need ${item.cost} coins for ${item.name}.`;
+      return true;
+    }
+
+    progress.coinsBank -= item.cost;
+    progress.inventory[item.id] = (progress.inventory[item.id] || 0) + 1;
+    state.coinsBank = progress.coinsBank;
+    state.inventory = { ...progress.inventory };
+    state.message = `Bought ${item.name}!`;
+    saveProgress(progress);
+    return true;
+  }
+
+  function characterFilter() {
+    return progress.useStanley && progress.unlockedStanley
+      ? "hue-rotate(210deg) saturate(0.75)"
+      : "none";
   }
 
   return {
     title: "Granny Rooftop",
-    controlScheme: "dpad",
+    controlScheme: "jump_cane",
     stageAspect: "square",
     setDifficulty(nextDifficulty) {
       if (!difficultyPresets[nextDifficulty]) {
@@ -400,8 +836,12 @@ export function createGrannyRunGame(ctx) {
       difficulty = nextDifficulty;
     },
     start() {
-      state = createState();
-      ensureWorld(CANVAS_SIZE);
+      progress = loadProgress();
+      if (progress.levelIndex === 0 && progress.totalScore === 0 && progress.coinsBank === 0) {
+        startLevel(0);
+      } else {
+        enterShop(`World map · Level ${progress.levelIndex + 1}/${levelCount()}`);
+      }
     },
     stop() {
       if (state.status === "running") {
@@ -409,7 +849,14 @@ export function createGrannyRunGame(ctx) {
       }
     },
     tick() {
+      if (state.status === "shop") {
+        return;
+      }
+
       if (state.status !== "running") {
+        if (state.feedbackTimer > 0) {
+          state.feedbackTimer -= 1;
+        }
         return;
       }
 
@@ -418,6 +865,7 @@ export function createGrannyRunGame(ctx) {
       state.landingTimer = Math.max(0, state.landingTimer - 1);
       state.feedbackTimer = Math.max(0, state.feedbackTimer - 1);
       state.spinInputTimer = Math.max(0, state.spinInputTimer - 1);
+      state.canePulse = false;
 
       if (state.crashTimer > 0) {
         state.crashTimer -= 1;
@@ -426,29 +874,20 @@ export function createGrannyRunGame(ctx) {
         }
       }
 
-      const cruiseSpeed = Math.min(8.8, cfg.runSpeed + state.distance / 900);
-      const targetSpeed = state.crashTimer > 0 ? cfg.runSpeed * 0.58 : cruiseSpeed;
-      state.speed += (targetSpeed - state.speed) * 0.055;
+      const cruiseSpeed = Math.min(9.4, cfg.runSpeed + state.perfectLandings * 0.18);
+      const targetSpeed = state.crashTimer > 0 ? cfg.runSpeed * 0.55 : cruiseSpeed;
+      state.speed += (targetSpeed - state.speed) * 0.06;
       state.scrollX += state.speed;
-      state.distance += state.speed;
-
-      if (Math.floor(state.distance) % 8 === 0) {
-        state.score += 1;
-      }
-
-      ensureWorld(state.scrollX + CANVAS_SIZE);
 
       if (state.mode === "swing" && state.swingAnchor) {
         const anchor = state.swingAnchor;
+        state.swingFrames += 1;
         state.swingVelocity += cfg.gravity / Math.max(36, state.swingRadius);
         state.swingAngle += state.swingVelocity;
+        state.playerY = anchor.y + Math.sin(state.swingAngle) * state.swingRadius - PLAYER_H;
 
-        const worldX = anchor.x + Math.cos(state.swingAngle) * state.swingRadius;
-        const bodyY = anchor.y + Math.sin(state.swingAngle) * state.swingRadius - PLAYER_H;
-        state.playerY = bodyY;
-
-        if (state.swingAngle > 0.25 && state.swingVelocity > 0) {
-          releaseSwing();
+        if (!state.caneHeld || state.swingFrames > 100) {
+          releaseSwing(false);
         }
       } else {
         if (state.jumpQueued && state.onGround) {
@@ -461,57 +900,73 @@ export function createGrannyRunGame(ctx) {
           state.currentJumpFlips = 0;
           state.jumpQueued = false;
         } else if (state.jumpQueued) {
-          tryLatchHook();
           state.jumpQueued = false;
         }
 
         state.playerVy += cfg.gravity;
         state.playerY += state.playerVy;
-        collidePlatforms();
+        collidePlayer();
 
         if (!state.onGround && state.mode === "air") {
           state.airControlTicks = state.jumpHeld ? state.airControlTicks + 1 : 0;
         }
 
-        const wantsToSpin = state.spinInputTimer > 0 || state.airControlTicks >= 7;
+        const wantsToSpin = state.spinInputTimer > 0 || state.airControlTicks >= 6;
         if (!state.onGround && state.mode === "air" && wantsToSpin) {
           const turnsBefore = Math.floor(state.spinAngle / FULL_TURN);
-          const speedFactor = clamp(state.speed / cfg.runSpeed, 0.85, 1.45);
-          state.spinAngle += 0.22 * speedFactor;
+          const speedFactor = clamp(state.speed / cfg.runSpeed, 0.85, 1.5);
+          state.spinAngle += 0.23 * speedFactor;
           const turnsAfter = Math.floor(state.spinAngle / FULL_TURN);
           if (turnsAfter > turnsBefore) {
             const newFlips = turnsAfter - turnsBefore;
             state.flips += newFlips;
             state.currentJumpFlips += newFlips;
-            state.score += newFlips * 5;
+            state.runScore += newFlips * 6;
           }
+        }
+
+        if (state.caneHeld && state.mode === "air") {
+          tryLatchHook(false);
         }
       }
 
+      updateThief();
+      updateProjectiles();
+      updatePeels();
       collectPickups();
       checkFall();
-      pruneWorld();
+
+      state.score = progress.totalScore + state.runScore;
+
+      if (getPlayerWorldX() >= state.level.finishX) {
+        clearLevel();
+      }
     },
     render() {
+      const world = WORLDS[state.level?.world ?? progress.levelIndex / 4 | 0] || WORLDS[0];
       clearCanvas(ctx, "#f8fbfd");
 
-      const parallax = (state.scrollX * 0.2) % CANVAS_SIZE;
-
-      ctx.fillStyle = "#eaf8fc";
+      ctx.fillStyle = world.tint || "#eaf8fc";
       ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE * 0.55);
 
-      ctx.fillStyle = "#c9c2f4";
+      if (state.status === "shop") {
+        renderShop(ctx, state, progress);
+        return;
+      }
+
+      const parallax = (state.scrollX * 0.2) % CANVAS_SIZE;
+      ctx.fillStyle = state.level.world === 2 ? "#9aa7b8" : "#c9c2f4";
       for (let i = -1; i < 4; i += 1) {
         const baseX = i * 160 - parallax * 0.35;
+        ctx.fillStyle = state.level.world === 2 ? "#8b98aa" : "#c9c2f4";
         ctx.fillRect(baseX, 120, 90, 180);
         ctx.fillRect(baseX + 40, 90, 70, 210);
         ctx.fillStyle = "#ffd34f";
         ctx.fillRect(baseX + 14, 140, 12, 18);
         ctx.fillRect(baseX + 52, 112, 12, 18);
-        ctx.fillStyle = "#c9c2f4";
       }
 
-      for (const platform of state.platforms) {
+      for (const platform of state.level.platforms) {
         const x = platform.x - state.scrollX;
         if (x + platform.width < -20 || x > CANVAS_SIZE + 20) {
           continue;
@@ -521,29 +976,45 @@ export function createGrannyRunGame(ctx) {
         ctx.fillRect(x, platform.y - platform.height, platform.width, platform.height);
         ctx.fillStyle = "#20c7e5";
         ctx.fillRect(x, platform.y - platform.height, platform.width, 6);
+      }
 
-        if (platform.chimney) {
+      for (const ramp of state.level.ramps) {
+        const x = ramp.x - state.scrollX;
+        ctx.fillStyle = "#20c7e5";
+        ctx.beginPath();
+        ctx.moveTo(x, ramp.y);
+        ctx.lineTo(x + ramp.width, ramp.y - ramp.rise);
+        ctx.lineTo(x + ramp.width, ramp.y);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      for (const prop of state.level.breakables) {
+        if (prop.broken) {
+          continue;
+        }
+        const x = prop.x - state.scrollX;
+        if (prop.kind === "window") {
+          ctx.fillStyle = "#7ec8ff";
+          ctx.fillRect(x, prop.y, prop.width, prop.height);
+          ctx.strokeStyle = "#283043";
+          ctx.strokeRect(x, prop.y, prop.width, prop.height);
+        } else if (prop.kind === "chimney") {
           ctx.fillStyle = "#283043";
-          ctx.fillRect(x + platform.width * 0.25, platform.y - platform.height - 22, 14, 22);
+          ctx.fillRect(x, prop.y, prop.width, prop.height);
+        } else {
+          ctx.fillStyle = "#c47b3a";
+          ctx.fillRect(x, prop.y, prop.width, prop.height);
         }
       }
 
-      for (const hook of state.hooks) {
+      for (const hook of state.level.hooks) {
         const x = hook.x - state.scrollX;
         if (x < -30 || x > CANVAS_SIZE + 30) {
           continue;
         }
 
-        const drawn = drawLcdSprite(
-          ctx,
-          grannyItemSprites,
-          1,
-          1,
-          x - 28,
-          hook.y - 58,
-          56,
-          76,
-        );
+        const drawn = drawLcdSprite(ctx, grannyItemSprites, 1, 1, x - 28, hook.y - 58, 56, 76);
         if (!drawn) {
           ctx.strokeStyle = "#283043";
           ctx.lineWidth = 3;
@@ -556,30 +1027,77 @@ export function createGrannyRunGame(ctx) {
         }
       }
 
-      for (const pickup of state.pickups) {
+      for (const apple of state.level.apples) {
+        if (apple.takenBy) {
+          continue;
+        }
+        const x = apple.x - state.scrollX;
+        const drawn = drawLcdSprite(ctx, grannyItemSprites, 0, 1, x - 18, apple.y - 18, 36, 36);
+        if (!drawn) {
+          ctx.fillStyle = "#ff5d73";
+          drawDot(ctx, x, apple.y, apple.radius);
+        }
+      }
+
+      for (const pickup of state.level.coins) {
         if (pickup.taken) {
           continue;
         }
-
         const x = pickup.x - state.scrollX;
-        if (x < -20 || x > CANVAS_SIZE + 20) {
+        ctx.fillStyle = pickup.dropped ? "#ffd34f" : "#f0c419";
+        drawDot(ctx, x, pickup.y, pickup.radius);
+      }
+
+      for (const peel of state.peels) {
+        if (peel.used) {
           continue;
         }
+        ctx.fillStyle = "#d4c84a";
+        ctx.fillRect(peel.x - state.scrollX - 8, peel.y - 4, 16, 8);
+      }
 
-        const drawn = drawLcdSprite(
-          ctx,
-          grannyItemSprites,
-          0,
-          1,
-          x - 18,
-          pickup.y - 18,
-          36,
-          36,
-        );
-        if (!drawn) {
-          ctx.fillStyle = "#ff5d73";
-          drawDot(ctx, x, pickup.y, pickup.radius);
+      for (const shot of state.projectiles) {
+        ctx.fillStyle = "#ffffff";
+        drawDot(ctx, shot.x - state.scrollX, shot.y, 5);
+      }
+
+      const finishX = state.level.finishX - state.scrollX;
+      if (finishX > -20 && finishX < CANVAS_SIZE + 20) {
+        ctx.fillStyle = "#283043";
+        ctx.fillRect(finishX, 80, 6, CANVAS_SIZE - 150);
+        ctx.fillStyle = "#ff5d73";
+        ctx.fillRect(finishX + 6, 80, 28, 18);
+      }
+
+      // Thief
+      const thief = state.thief;
+      const tx = thief.x - state.scrollX;
+      if (tx > -40 && tx < CANVAS_SIZE + 40) {
+        if (thief.mode === "swing" && thief.swingAnchor) {
+          ctx.strokeStyle = "#283043";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(tx + PLAYER_W / 2, thief.y + 5);
+          ctx.lineTo(thief.swingAnchor.x - state.scrollX, thief.swingAnchor.y);
+          ctx.stroke();
         }
+        ctx.save();
+        ctx.globalAlpha = 0.92;
+        const thiefDrawn = drawGrannyFrame(
+          ctx,
+          Math.floor(thief.animationClock) % 4,
+          thief.mode === "air" || thief.mode === "swing" ? 1 : 0,
+          tx - 20,
+          thief.y - 30,
+          66,
+          70,
+          "hue-rotate(300deg) saturate(1.2)",
+        );
+        if (!thiefDrawn) {
+          ctx.fillStyle = "#283043";
+          ctx.fillRect(tx, thief.y + 10, PLAYER_W - 4, PLAYER_H - 10);
+        }
+        ctx.restore();
       }
 
       const px = PLAYER_SCREEN_X;
@@ -628,7 +1146,7 @@ export function createGrannyRunGame(ctx) {
 
       let visualRotation = 0;
       if (state.crashTimer > 0) {
-        visualRotation = state.crashAngle + (30 - state.crashTimer) * 0.075;
+        visualRotation = state.crashAngle + (32 - state.crashTimer) * 0.075;
       } else if (state.mode === "swing") {
         visualRotation = clamp(state.swingAngle - Math.PI / 2, -0.48, 0.48);
       } else if (!state.onGround) {
@@ -652,6 +1170,7 @@ export function createGrannyRunGame(ctx) {
         py - 33 + skateBob,
         74,
         76,
+        characterFilter(),
       );
       if (!playerDrawn) {
         ctx.fillStyle = "#20c7e5";
@@ -659,8 +1178,18 @@ export function createGrannyRunGame(ctx) {
         ctx.fillStyle = "#ffffff";
         drawDot(ctx, px + PLAYER_W / 2, py + 10, 11);
       }
-
       ctx.restore();
+
+      if (state.phase === "cleared" || state.phase === "complete") {
+        ctx.fillStyle = "rgba(248, 251, 253, 0.72)";
+        ctx.fillRect(40, 150, 400, 140);
+        ctx.fillStyle = "#283043";
+        ctx.font = "bold 22px sans-serif";
+        ctx.fillText(state.phase === "complete" ? "Campaign Clear!" : "Level Clear!", 70, 190);
+        ctx.font = "18px sans-serif";
+        ctx.fillText(`${"★".repeat(state.starsEarned)}${"☆".repeat(3 - state.starsEarned)}  Apples ${state.applesGranny}/3`, 70, 225);
+        ctx.fillText("Enter / Select: shop", 70, 258);
+      }
     },
     onKeyDown(keyText) {
       const normalized = String(keyText).toLowerCase();
@@ -670,14 +1199,50 @@ export function createGrannyRunGame(ctx) {
         return true;
       }
 
-      if (normalized === "enter" && state.status === "game_over") {
-        this.restart();
-        return true;
+      if (normalized === "enter") {
+        if (state.status === "failed") {
+          this.restart();
+          return true;
+        }
+        if (state.status === "cleared" || state.status === "complete") {
+          enterShop(state.landingFeedback || "Shop");
+          return true;
+        }
+        if (state.status === "shop") {
+          return buyShopItem();
+        }
+      }
+
+      if (state.status === "shop") {
+        if (normalized === "arrowleft" || normalized === "a") {
+          state.shopIndex = (state.shopIndex + SHOP_ITEMS.length - 1) % SHOP_ITEMS.length;
+          return true;
+        }
+        if (normalized === "arrowright" || normalized === "d") {
+          state.shopIndex = (state.shopIndex + 1) % SHOP_ITEMS.length;
+          return true;
+        }
+        if (normalized === "arrowdown" || normalized === "s" || normalized === "arrowup" || normalized === "w") {
+          return buyShopItem();
+        }
+        return false;
       }
 
       if (normalized === "arrowup" || normalized === "w") {
         state.jumpHeld = true;
         return queueJump();
+      }
+
+      if (normalized === "arrowdown" || normalized === "s") {
+        return pressCane();
+      }
+
+      if (normalized === "c" && progress.unlockedStanley) {
+        progress.useStanley = !progress.useStanley;
+        saveProgress(progress);
+        state.landingFeedback = progress.useStanley ? "Stanley skates in!" : "Granny is back!";
+        state.feedbackTimer = 50;
+        return true;
       }
 
       return false;
@@ -689,37 +1254,117 @@ export function createGrannyRunGame(ctx) {
         state.spinInputTimer = 0;
         return true;
       }
+      if (normalized === "arrowdown" || normalized === "s") {
+        return releaseCane();
+      }
       return false;
     },
     onControl(action) {
+      if (state.status === "shop") {
+        if (action === "LEFT") {
+          state.shopIndex = (state.shopIndex + SHOP_ITEMS.length - 1) % SHOP_ITEMS.length;
+          return true;
+        }
+        if (action === "RIGHT") {
+          state.shopIndex = (state.shopIndex + 1) % SHOP_ITEMS.length;
+          return true;
+        }
+        if (action === "SELECT" || action === "UP") {
+          return buyShopItem();
+        }
+        return false;
+      }
+
+      if (state.status === "cleared" || state.status === "complete") {
+        if (action === "SELECT" || action === "UP") {
+          enterShop(state.landingFeedback || "Shop");
+          return true;
+        }
+        return false;
+      }
+
+      if (state.status === "failed") {
+        if (action === "SELECT" || action === "UP") {
+          this.restart();
+          return true;
+        }
+        return false;
+      }
+
       if (action === "UP") {
+        state.jumpHeld = true;
         return queueJump();
+      }
+      if (action === "SELECT" || action === "DOWN") {
+        return pressCane();
+      }
+      return false;
+    },
+    onControlUp(action) {
+      if (action === "UP") {
+        state.jumpHeld = false;
+        state.spinInputTimer = 0;
+        return true;
+      }
+      if (action === "SELECT" || action === "DOWN") {
+        return releaseCane();
       }
       return false;
     },
     togglePause() {
-      if (state.status === "game_over") {
+      if (state.status === "failed" || state.status === "cleared" || state.status === "complete" || state.status === "shop") {
         return;
       }
       state.status = state.status === "paused" ? "running" : "paused";
     },
     restart() {
-      state = createState();
-      ensureWorld(CANVAS_SIZE);
+      if (state.status === "complete") {
+        progress = defaultProgress();
+        saveProgress(progress);
+        startLevel(0);
+        return;
+      }
+      startLevel(progress.levelIndex);
     },
     getTickMs() {
       return 16;
     },
     getControlHint() {
-      return "Up/W: jump · hold to flip · press again near a vine to swing.";
+      if (state.status === "shop") {
+        return "Left/Right browse shop · Select buy or skate on.";
+      }
+      return "Up/W: jump (hold to flip) · Down/S: cane swing · baseball/banana when not on a wire.";
     },
     getHud() {
-      const scoreLine = `Score: ${Math.floor(state.score)} | Apples: ${state.apples} | Best: ${Math.floor(bestScore)}m`;
+      const scoreValue = state.status === "shop"
+        ? progress.totalScore
+        : progress.totalScore + (state.runScore || 0);
+      bestScore = Math.max(bestScore, progress.totalScore, scoreValue);
+      const scoreLine = `Score: ${Math.floor(scoreValue)} | Best: ${Math.floor(bestScore)}`;
 
-      if (state.status === "game_over") {
+      if (state.status === "shop") {
+        const item = SHOP_ITEMS[state.shopIndex];
         return {
           score: scoreLine,
-          status: `Granny fell! Flips ${state.flips} · Perfect landings ${state.perfectLandings} · Crashes ${state.crashes}. Restart to retry.`,
+          status: `Shop · Coins ${progress.coinsBank} · ${item.name} (${item.cost || "free"}) · ${state.message || item.blurb}`,
+          pauseLabel: "Pause",
+          pauseDisabled: true,
+        };
+      }
+
+      if (state.status === "failed") {
+        return {
+          score: scoreLine,
+          status: state.landingFeedback || "Granny fell! Restart to retry.",
+          pauseLabel: "Pause",
+          pauseDisabled: true,
+        };
+      }
+
+      if (state.status === "cleared" || state.status === "complete") {
+        return {
+          score: scoreLine,
+          status: state.landingFeedback || "Level clear!",
           pauseLabel: "Pause",
           pauseDisabled: true,
         };
@@ -728,16 +1373,20 @@ export function createGrannyRunGame(ctx) {
       if (state.status === "paused") {
         return {
           score: scoreLine,
-          status: `Paused (${difficulty}). Up/W jump · hold to flip · press again near vines to swing.`,
+          status: `Paused (${difficulty}). Up jump · Down cane.`,
           pauseLabel: "Resume",
           pauseDisabled: false,
         };
       }
 
+      const levelLabel = `L${state.levelIndex + 1}/${levelCount()}`;
+      const appleLabel = `Apples ${state.applesGranny}-${state.applesThief}`;
+      const gear = `H${state.inventory.helmet}/B${state.inventory.banana}/S${state.inventory.baseball}`;
+
       if (state.feedbackTimer > 0 && state.landingFeedback) {
         return {
           score: scoreLine,
-          status: `Run rooftops · ${state.landingFeedback}`,
+          status: `${levelLabel} · ${appleLabel} · ${state.landingFeedback}`,
           pauseLabel: "Pause",
           pauseDisabled: false,
         };
@@ -745,10 +1394,55 @@ export function createGrannyRunGame(ctx) {
 
       return {
         score: scoreLine,
-        status: `Run rooftops (${difficulty}). Tap Up/W to jump · hold to flip · grab vines · collect apples.`,
+        status: `${levelLabel} (${difficulty}) · ${appleLabel} · Coins ${state.coinsRun} · ${gear}`,
         pauseLabel: "Pause",
         pauseDisabled: false,
       };
     },
+    // Test helpers
+    _getState() {
+      return state;
+    },
+    _getProgress() {
+      return progress;
+    },
+    _startLevel(index) {
+      startLevel(index);
+    },
+    _enterShop(message) {
+      enterShop(message || "Shop");
+    },
   };
+}
+
+function renderShop(ctx, state, progress) {
+  ctx.fillStyle = "#eaf8fc";
+  ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+  ctx.fillStyle = "#283043";
+  ctx.font = "bold 26px sans-serif";
+  ctx.fillText("Rooftop Shop", 40, 56);
+  ctx.font = "16px sans-serif";
+  ctx.fillText(`Coins ${progress.coinsBank} · Score ${progress.totalScore}`, 40, 84);
+  ctx.fillText(`Next: Level ${progress.levelIndex + 1}/${levelCount()}`, 40, 108);
+
+  if (progress.unlockedStanley) {
+    ctx.fillText(progress.useStanley ? "Skater: Stanley (press C in-run)" : "Skater: Granny (press C in-run)", 40, 132);
+  }
+
+  SHOP_ITEMS.forEach((item, index) => {
+    const y = 168 + index * 58;
+    const selected = index === state.shopIndex;
+    ctx.fillStyle = selected ? "#20c7e5" : "#d7e6ee";
+    ctx.fillRect(36, y - 28, 408, 50);
+    ctx.fillStyle = "#283043";
+    ctx.font = selected ? "bold 18px sans-serif" : "16px sans-serif";
+    ctx.fillText(`${item.name}  ·  ${item.cost || "free"}`, 52, y);
+    ctx.font = "13px sans-serif";
+    ctx.fillText(item.blurb, 52, y + 18);
+  });
+
+  ctx.fillStyle = "#5c6b78";
+  ctx.font = "14px sans-serif";
+  ctx.fillText(state.message || "Stock up, then skate on.", 40, 430);
+  ctx.fillText(`Owned  Helmet ${progress.inventory.helmet} · Banana ${progress.inventory.banana} · Baseball ${progress.inventory.baseball}`, 40, 454);
 }
