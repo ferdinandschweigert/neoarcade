@@ -1378,3 +1378,351 @@ body.is-touch .touch-controls {
     scroll-behavior: auto !important;
   }
 }
+
+/* --- Tabletop score counter --- */
+
+.tabletop-button {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.tabletop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 32;
+  display: grid;
+  place-items: center;
+  padding: 0.75rem;
+  background: rgba(232, 241, 246, 0.94);
+  overflow: auto;
+}
+
+.tabletop-overlay.hidden {
+  display: none;
+}
+
+.tabletop-card {
+  width: min(100%, 42rem);
+  max-height: min(92dvh, 56rem);
+  display: flex;
+  flex-direction: column;
+  padding: 1.15rem 1.25rem 1.35rem;
+  border: 10px solid var(--navy);
+  border-radius: 2rem 2rem 2.8rem 2rem;
+  background: var(--lcd-light);
+  color: var(--lcd-ink);
+  box-shadow:
+    -8px 0 0 var(--cyan),
+    8px 0 0 var(--burgundy),
+    0 0 0 8px var(--shell),
+    0 12px 0 var(--navy-dark),
+    0 20px 45px rgba(17, 24, 39, 0.28),
+    inset 0 0 0 5px var(--lcd-mid);
+  overflow: hidden;
+}
+
+.tabletop-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.tabletop-close-button {
+  width: 2.2rem;
+  height: 2.2rem;
+  min-height: 0;
+  padding: 0;
+  border-radius: 50%;
+  border-color: var(--navy);
+  background: #ffffff;
+  color: var(--navy);
+  box-shadow: 0 3px 0 var(--navy);
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.tabletop-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  margin-top: 0.35rem;
+  padding-right: 0.15rem;
+}
+
+.tt-message {
+  min-height: 1rem;
+  margin: 0.35rem 0 0;
+  color: var(--burgundy-dark);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.tt-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.65rem;
+  margin-bottom: 0.55rem;
+}
+
+.tt-toolbar h2 {
+  margin: 0;
+  flex: 1 1 auto;
+  font-size: 1.05rem;
+  text-transform: uppercase;
+  letter-spacing: -0.03em;
+}
+
+.tt-lead,
+.tt-blurb,
+.tt-meta,
+.tt-hint {
+  margin: 0 0 0.65rem;
+  color: var(--lcd-muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.tt-hint {
+  color: var(--burgundy-dark);
+  font-weight: 800;
+}
+
+.tt-game-grid,
+.tt-history-list {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.tt-game-card,
+.tt-history-card {
+  padding: 0.85rem 0.9rem;
+  border: 3px solid var(--navy);
+  border-radius: 1rem;
+  background: #ffffff;
+  box-shadow: 0 4px 0 var(--cyan);
+}
+
+.tt-game-card h3,
+.tt-history-card h3 {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+}
+
+.tt-card-actions,
+.tt-session-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+}
+
+.tabletop-card button {
+  min-height: 2.2rem;
+  padding: 0.4rem 0.75rem;
+  border: 3px solid var(--navy);
+  border-radius: 0.7rem;
+  background: var(--burgundy);
+  color: #fff0d1;
+  box-shadow: 0 3px 0 var(--burgundy-dark);
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.tabletop-card button.tt-secondary {
+  background: #ffffff;
+  color: var(--navy);
+  border-color: var(--cyan-dark);
+  box-shadow: 0 3px 0 var(--cyan);
+}
+
+.tabletop-card button.tt-danger {
+  background: var(--navy-soft);
+  border-color: var(--navy-dark);
+  box-shadow: 0 3px 0 var(--navy-dark);
+  color: #ffffff;
+}
+
+.tt-rules {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0.5rem 0 0.85rem;
+}
+
+.tt-rule-section {
+  padding: 0.7rem 0.8rem;
+  border-left: 4px solid var(--cyan);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.tt-rule-section h3 {
+  margin: 0 0 0.3rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+
+.tt-rule-section p {
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.4;
+  color: var(--lcd-ink);
+}
+
+.tt-form {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.5rem;
+}
+
+.tt-form h3 {
+  margin: 0;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
+
+.tt-field,
+.tt-player-round label {
+  display: grid;
+  gap: 0.2rem;
+  color: var(--lcd-muted);
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.tt-field input,
+.tt-player-round input[type="number"],
+.tt-form input[type="number"],
+.tt-form input[type="text"] {
+  width: 100%;
+  min-height: 2.2rem;
+  padding: 0.35rem 0.55rem;
+  border: 2px solid var(--lcd-dark);
+  border-radius: 0.45rem;
+  background: #ffffff;
+  color: var(--lcd-ink);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: none;
+}
+
+.tt-name-grid,
+.tt-round-grid {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.tt-player-round {
+  margin: 0;
+  padding: 0.55rem 0.65rem;
+  border: 2px solid var(--lcd-dark);
+  border-radius: 0.55rem;
+  background: #ffffff;
+}
+
+.tt-player-round legend {
+  padding: 0 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.tt-check {
+  display: flex !important;
+  align-items: center;
+  gap: 0.4rem;
+  grid-template-columns: none;
+}
+
+.tt-check input {
+  width: auto;
+  min-height: 0;
+}
+
+.tt-totals {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.4rem;
+  margin: 0 0 0.75rem;
+  padding: 0;
+}
+
+.tt-totals li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.45rem 0.55rem;
+  border: 2px solid var(--lcd-dark);
+  border-radius: 0.45rem;
+  background: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.tt-table-wrap {
+  overflow: auto;
+  margin-bottom: 0.75rem;
+  border: 2px solid var(--lcd-dark);
+  border-radius: 0.45rem;
+  background: #ffffff;
+}
+
+.tt-score-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.tt-score-table th,
+.tt-score-table td {
+  padding: 0.35rem 0.4rem;
+  border-bottom: 1px solid var(--lcd-mid);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.tt-score-table th:first-child,
+.tt-score-table td:first-child {
+  text-align: left;
+  position: sticky;
+  left: 0;
+  background: #ffffff;
+}
+
+.tt-score-table small {
+  color: var(--lcd-muted);
+  font-weight: 700;
+}
+
+@media (min-width: 720px) {
+  .tt-game-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .tt-round-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .tabletop-card {
+    width: 100%;
+    max-height: calc(100dvh - 1rem);
+    border-width: 6px;
+    border-radius: 1.4rem;
+    padding: 0.9rem;
+  }
+
+  .app-user .user-label {
+    display: none;
+  }
+}

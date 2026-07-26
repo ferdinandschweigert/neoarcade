@@ -22,6 +22,7 @@ import { createLayoutManager } from "./ui/layout.mjs";
 import { createInputManager } from "./input.mjs";
 import { createFeedbackUI } from "./ui/feedback.mjs";
 import { createResponsiveLayout } from "./ui/responsive.mjs";
+import { createTabletopManager } from "./tabletop/tabletop.mjs";
 import {
   safeStorageGet,
   safeStorageGetJson,
@@ -133,6 +134,13 @@ const authManager = createAuthManager({
     }
   },
 });
+
+const tabletopManager = createTabletopManager({
+  rootEl: document.querySelector("#tabletop-overlay"),
+  openButtonEl: document.querySelector("#tabletop-button"),
+  closeButtonEl: document.querySelector("#tabletop-close-button"),
+});
+tabletopManager.init();
 
 const layoutManager = createLayoutManager({
   tabButtons: document.querySelectorAll(".app-tab"),

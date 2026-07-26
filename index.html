@@ -8,6 +8,17 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body class="theme-cursor" data-view="play">
+    <div id="tabletop-overlay" class="tabletop-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="tabletop-title">
+      <div class="tabletop-card">
+        <div class="tabletop-card-head">
+          <p class="kicker" id="tabletop-title">Tischspiele</p>
+          <button id="tabletop-close-button" class="tabletop-close-button" type="button" data-tt-action="close" aria-label="Schließen">×</button>
+        </div>
+        <p class="tt-message" data-tt-message aria-live="polite"></p>
+        <div class="tabletop-body" data-tt-body></div>
+      </div>
+    </div>
+
     <div id="auth-gate" class="auth-gate hidden">
       <div class="auth-card">
         <p class="kicker">Brain Break Arcade</p>
@@ -54,6 +65,7 @@
           </div>
         </div>
         <div class="app-user">
+          <button id="tabletop-button" class="icon-button tabletop-button" type="button" aria-label="Tischspiele zählen" title="Tischspiele">▦</button>
           <span id="user-label" class="user-label hidden"></span>
           <button id="signin-button" class="signin-button" type="button">Sign in</button>
           <button id="signout-button" class="signout-button hidden" type="button">Sign out</button>

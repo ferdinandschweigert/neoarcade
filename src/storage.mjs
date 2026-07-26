@@ -13,6 +13,7 @@ const STORAGE_KEYS = {
   LONG_PRESS: "neoArcade.longPress.v1",
   AUTH_TOKEN: "neoArcade.authToken.v1",
   GUEST_MODE: "neoArcade.guestMode.v1",
+  TABLETOP_SESSIONS: "neoArcade.tabletop.v1",
 };
 
 let onStorageError = null;
