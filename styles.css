@@ -1654,6 +1654,71 @@ body.tabletop-open {
   text-transform: none;
 }
 
+.tt-stepper {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.tt-stepper-label {
+  color: var(--lcd-muted);
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.tt-stepper-row {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr) 3rem;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.tt-step-btn {
+  width: 100%;
+  min-height: 3rem !important;
+  padding: 0 !important;
+  font-size: 1.25rem !important;
+  line-height: 1;
+  user-select: none;
+}
+
+.tt-stepper-input {
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.35rem 0.4rem;
+  border: 2px solid var(--lcd-dark);
+  border-radius: 0.45rem;
+  background: #ffffff;
+  color: var(--lcd-ink);
+  font: inherit;
+  font-size: 1.25rem;
+  font-weight: 900;
+  text-align: center;
+  text-transform: none;
+  -moz-appearance: textfield;
+}
+
+.tt-stepper-input::-webkit-outer-spin-button,
+.tt-stepper-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.tt-stepper-quick {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+}
+
+.tt-step-big {
+  min-height: 2.4rem !important;
+  font-size: 0.75rem !important;
+}
+
+.tt-player-round .tt-stepper {
+  margin-top: 0.35rem;
+}
+
 .tt-name-grid,
 .tt-round-grid {
   display: grid;
