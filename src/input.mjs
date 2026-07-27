@@ -20,6 +20,8 @@ export const CONTROL_SCHEMES = {
   grid_select_flag: [["UP"], ["LEFT", "DOWN", "RIGHT"], ["SELECT", "FLAG"]],
   horizontal_select: [["LEFT", "RIGHT"], ["SELECT"]],
   select_only: [["SELECT"]],
+  jump_cane: [["UP"], ["LEFT", "RIGHT"], ["SELECT"]],
+  shop_nav: [["LEFT", "RIGHT"], ["SELECT"]],
 };
 
 export const ACTION_ARIA_LABELS = {
@@ -29,6 +31,34 @@ export const ACTION_ARIA_LABELS = {
   RIGHT: "Move right",
   SELECT: "Select",
   FLAG: "Flag",
+};
+
+export const SCHEME_ACTION_LABELS = {
+  jump_cane: {
+    UP: "Jump",
+    LEFT: "◀",
+    RIGHT: "▶",
+    SELECT: "Cane",
+  },
+  shop_nav: {
+    LEFT: "◀",
+    RIGHT: "▶",
+    SELECT: "Buy",
+  },
+};
+
+export const SCHEME_ACTION_ARIA_LABELS = {
+  jump_cane: {
+    UP: "Jump and hold to flip",
+    LEFT: "Previous shop item",
+    RIGHT: "Next shop item",
+    SELECT: "Hook cane or confirm shop",
+  },
+  shop_nav: {
+    LEFT: "Previous shop item",
+    RIGHT: "Next shop item",
+    SELECT: "Buy or continue",
+  },
 };
 
 export const DEFAULT_CONTROL_HINTS = {
@@ -41,6 +71,8 @@ export const DEFAULT_CONTROL_HINTS = {
   grid_select_flag: "Tap to reveal. Long-press to flag.",
   horizontal_select: "Swipe left/right, tap to confirm.",
   select_only: "Tap the board to play.",
+  jump_cane: "Up/W jump (hold to flip). Down/S or Cane to swing on wires.",
+  shop_nav: "Left/Right to browse. Select to buy or continue.",
   none: "Swipe on the board to play.",
 };
 
@@ -149,11 +181,17 @@ export function createInputManager(options) {
 
   function releaseControl(action) {
     const game = getActiveGame();
-    if (!game || typeof game.onControlRelease !== "function") {
+    if (!game) {
       return false;
     }
 
-    const changed = game.onControlRelease(action);
+    let changed = false;
+    if (typeof game.onControlRelease === "function") {
+      changed = game.onControlRelease(action) || changed;
+    }
+    if (typeof game.onControlUp === "function") {
+      changed = game.onControlUp(action) || changed;
+    }
     if (changed) {
       onControlApplied?.();
     }
@@ -178,6 +216,8 @@ export function createInputManager(options) {
     const scheme = showButtons
       ? CONTROL_SCHEMES[schemeName] ?? CONTROL_SCHEMES.none
       : CONTROL_SCHEMES.none;
+    const schemeLabels = SCHEME_ACTION_LABELS[schemeName] || {};
+    const schemeAria = SCHEME_ACTION_ARIA_LABELS[schemeName] || {};
 
     touchControlsEl.innerHTML = "";
 
@@ -197,8 +237,11 @@ export function createInputManager(options) {
         buttonEl.type = "button";
         buttonEl.dataset.action = action;
         buttonEl.className = "touch-action-button";
-        buttonEl.setAttribute("aria-label", ACTION_ARIA_LABELS[action] || action.toLowerCase());
-        buttonEl.textContent = ACTION_LABELS[action] || action;
+        buttonEl.setAttribute(
+          "aria-label",
+          schemeAria[action] || ACTION_ARIA_LABELS[action] || action.toLowerCase(),
+        );
+        buttonEl.textContent = schemeLabels[action] || ACTION_LABELS[action] || action;
         rowEl.appendChild(buttonEl);
       }
 
@@ -659,9 +702,10 @@ export function createInputManager(options) {
           holdState.nextRepeat = timestamp + GAMEPAD_REPEAT_MS;
           changed = triggerControl(action) || changed;
         }
-      } else {
+      } else if (holdState.pressed) {
         holdState.pressed = false;
         holdState.nextRepeat = 0;
+        changed = releaseControl(action) || changed;
       }
 
       gamepadControlState.set(action, holdState);

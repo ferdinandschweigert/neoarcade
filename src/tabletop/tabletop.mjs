@@ -12,6 +12,8 @@ import {
 } from "../storage.mjs";
 
 const MAX_HISTORY = 10;
+/** Chips stay readable up to this many options (e.g. 0..6). Larger ranges use steppers. */
+const CHIP_OPTION_LIMIT = 7;
 
 export function createTabletopManager(config = {}) {
   const rootEl = config.rootEl;
@@ -138,6 +140,45 @@ export function createTabletopManager(config = {}) {
     const action = button.dataset.ttAction;
     const gameId = button.dataset.ttGame || null;
 
+    if (action === "step") {
+      event.preventDefault();
+      const targetName = button.dataset.ttStepTarget;
+      const delta = Number(button.dataset.ttStepDelta || "1");
+      if (!targetName || !Number.isFinite(delta)) {
+        return;
+      }
+      const input = rootEl.querySelector(`input[name="${CSS.escape(targetName)}"]`);
+      if (!(input instanceof HTMLInputElement)) {
+        return;
+      }
+      const current = Number(input.value);
+      const base = Number.isFinite(current) ? current : 0;
+      let next = base + delta;
+      const min = input.min !== "" ? Number(input.min) : null;
+      const max = input.max !== "" ? Number(input.max) : null;
+      if (min != null && Number.isFinite(min)) {
+        next = Math.max(min, next);
+      }
+      if (max != null && Number.isFinite(max)) {
+        next = Math.min(max, next);
+      }
+      setNumericFieldValue(input, next);
+      return;
+    }
+    if (action === "set-value") {
+      event.preventDefault();
+      const targetName = button.dataset.ttTarget;
+      const value = Number(button.dataset.ttValue);
+      if (!targetName || !Number.isFinite(value)) {
+        return;
+      }
+      const input = rootEl.querySelector(`input[name="${CSS.escape(targetName)}"]`);
+      if (!(input instanceof HTMLInputElement)) {
+        return;
+      }
+      setNumericFieldValue(input, value);
+      return;
+    }
     if (action === "close") {
       close();
       return;
@@ -544,10 +585,13 @@ export function createTabletopManager(config = {}) {
 
     const countField = fixed
       ? `<input type="hidden" name="player-count" value="${count}" />`
-      : `<label class="tt-field">
-          <span>Anzahl Spieler (${game.players.min}–${game.players.max})</span>
-          <input name="player-count" type="number" min="${game.players.min}" max="${game.players.max}" value="${count}" />
-        </label>`;
+      : `${renderStepper({
+          label: `Anzahl Spieler (${game.players.min}–${game.players.max})`,
+          name: "player-count",
+          value: count,
+          min: game.players.min,
+          max: game.players.max,
+        })}`;
 
     return `
       <div class="tt-toolbar">
@@ -580,7 +624,7 @@ export function createTabletopManager(config = {}) {
     if (game.scoreMode === "wizard") {
       const maxR = wizardMaxRounds(activeSession.players.length);
       const next = activeSession.rounds.length + 1;
-      endHint = `<p class="tt-hint">Runde ${Math.min(next, maxR)} von ${maxR} (je ${Math.min(next, maxR)} Karten).</p>`;
+      endHint = `<p class="tt-hint">Runde ${Math.min(next, maxR)} von ${maxR} (je ${Math.min(next, maxR)} ${Math.min(next, maxR) === 1 ? "Karte" : "Karten"}).</p>`;
       if (activeSession.rounds.length >= maxR) {
         endHint = `<p class="tt-hint">Alle Wizard-Runden sind gespielt. ${escapeHtml(leader.name)} führt mit ${leader.total}.</p>`;
       }
@@ -613,17 +657,34 @@ export function createTabletopManager(config = {}) {
       if (session.rounds.length >= maxR) {
         return `<p class="tt-hint">Keine weiteren Wizard-Runden.</p>`;
       }
+      const maxTricks = session.rounds.length + 1;
       const fields = session.players
         .map(
           (player, index) => `
           <fieldset class="tt-player-round">
             <legend>${escapeHtml(player.name)}</legend>
-            <label>Ansage <input name="bid-${index}" type="number" min="0" max="${session.rounds.length + 1}" value="0" required /></label>
-            <label>Stiche <input name="tricks-${index}" type="number" min="0" max="${session.rounds.length + 1}" value="0" required /></label>
+            ${renderBoundedNumber({
+              label: "Ansage",
+              name: `bid-${index}`,
+              value: 0,
+              min: 0,
+              max: maxTricks,
+            })}
+            ${renderBoundedNumber({
+              label: "Stiche",
+              name: `tricks-${index}`,
+              value: 0,
+              min: 0,
+              max: maxTricks,
+            })}
           </fieldset>`,
         )
         .join("");
-      return `<form class="tt-form" data-tt-form="round"><h3>Runde ${session.rounds.length + 1}</h3><div class="tt-round-grid">${fields}</div><button type="submit">Runde speichern</button></form>`;
+      return `<form class="tt-form" data-tt-form="round"><h3>Runde ${session.rounds.length + 1}</h3><p class="tt-meta">${
+        maxTricks + 1 <= CHIP_OPTION_LIMIT
+          ? "Zahl antippen"
+          : "Mit − / + einstellen (viele Stiche in dieser Runde)"
+      }</p><div class="tt-round-grid">${fields}</div><button type="submit" class="tt-save-round">Runde speichern</button></form>`;
     }
 
     if (game.scoreMode === "phase10") {
@@ -632,7 +693,15 @@ export function createTabletopManager(config = {}) {
           (player, index) => `
           <fieldset class="tt-player-round">
             <legend>${escapeHtml(player.name)} (Phase ${(player.phase || 1) > 10 ? "fertig" : String(player.phase || 1)})</legend>
-            <label>Strafpunkte <input name="score-${index}" type="number" value="0" required /></label>
+            ${renderStepper({
+              label: "Strafpunkte",
+              name: `score-${index}`,
+              value: 0,
+              min: 0,
+              max: 500,
+              step: 1,
+              bigStep: 5,
+            })}
             <label class="tt-check"><input name="phase-${index}" type="checkbox" /> Phase geschafft</label>
           </fieldset>`,
         )
@@ -640,16 +709,116 @@ export function createTabletopManager(config = {}) {
       return `<form class="tt-form" data-tt-form="round"><h3>Runde ${session.rounds.length + 1}</h3><div class="tt-round-grid">${fields}</div><button type="submit">Runde speichern</button></form>`;
     }
 
+    const allowNegative = game.id === "doppelkopf" || game.id === "romme";
     const fields = session.players
       .map(
         (player, index) => `
-        <label class="tt-field">
+        <div class="tt-field">
           <span>${escapeHtml(player.name)}</span>
-          <input name="score-${index}" type="number" value="0" required />
-        </label>`,
+          ${renderStepper({
+            label: null,
+            name: `score-${index}`,
+            value: 0,
+            min: allowNegative ? -999 : 0,
+            max: 999,
+            step: game.id === "qwixx" ? 1 : 1,
+            bigStep: allowNegative || game.id === "skyjo" ? 5 : null,
+          })}
+        </div>`,
       )
       .join("");
     return `<form class="tt-form" data-tt-form="round"><h3>Runde ${session.rounds.length + 1} — Punkte</h3><div class="tt-round-grid">${fields}</div><button type="submit">Runde speichern</button></form>`;
+  }
+
+  function renderBoundedNumber({ label, name, value = 0, min = 0, max = 0 }) {
+    const optionCount = max - min + 1;
+    if (optionCount <= CHIP_OPTION_LIMIT) {
+      return renderChipPicker({ label, name, value, min, max });
+    }
+    return renderStepper({
+      label,
+      name,
+      value,
+      min,
+      max,
+      step: 1,
+      bigStep: optionCount > 12 ? 5 : null,
+    });
+  }
+
+  function renderChipPicker({ label, name, value = 0, min = 0, max = 0 }) {
+    const chips = [];
+    const compact = max - min + 1 >= 6 ? " tt-chip-row-compact" : "";
+    for (let n = min; n <= max; n += 1) {
+      const active = n === value ? " is-active" : "";
+      chips.push(
+        `<button type="button" class="tt-chip tt-secondary${active}" data-tt-action="set-value" data-tt-target="${escapeAttr(name)}" data-tt-value="${n}" aria-pressed="${n === value ? "true" : "false"}">${n}</button>`,
+      );
+    }
+    return `
+      <div class="tt-chip-field" data-tt-chip-field="${escapeAttr(name)}">
+        <span class="tt-stepper-label">${escapeHtml(label)}</span>
+        <input type="hidden" name="${escapeAttr(name)}" value="${value}" min="${min}" max="${max}" required />
+        <div class="tt-chip-row${compact}" role="group" aria-label="${escapeAttr(label)}">${chips.join("")}</div>
+      </div>`;
+  }
+
+  function setNumericFieldValue(input, next) {
+    input.value = String(next);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    const field = input.closest("[data-tt-chip-field]");
+    if (field) {
+      for (const chip of field.querySelectorAll(".tt-chip")) {
+        const isActive = Number(chip.dataset.ttValue) === next;
+        chip.classList.toggle("is-active", isActive);
+        chip.setAttribute("aria-pressed", isActive ? "true" : "false");
+      }
+    }
+  }
+
+  function renderStepper({
+    label,
+    name,
+    value = 0,
+    min = null,
+    max = null,
+    step = 1,
+    bigStep = null,
+  }) {
+    const minAttr = min == null ? "" : ` min="${min}"`;
+    const maxAttr = max == null ? "" : ` max="${max}"`;
+    const minData = min == null ? "" : ` data-tt-min="${min}"`;
+    const maxData = max == null ? "" : ` data-tt-max="${max}"`;
+    const labelHtml = label
+      ? `<span class="tt-stepper-label">${escapeHtml(label)}</span>`
+      : "";
+    const bigBtns =
+      bigStep != null
+        ? `
+        <button type="button" class="tt-step-btn tt-step-big tt-secondary" data-tt-action="step" data-tt-step-target="${escapeAttr(name)}" data-tt-step-delta="${-bigStep}" aria-label="Minus ${bigStep}">−${bigStep}</button>
+        <button type="button" class="tt-step-btn tt-step-big tt-secondary" data-tt-action="step" data-tt-step-target="${escapeAttr(name)}" data-tt-step-delta="${bigStep}" aria-label="Plus ${bigStep}">+${bigStep}</button>`
+        : "";
+    return `
+      <div class="tt-stepper"${minData}${maxData}>
+        ${labelHtml}
+        <div class="tt-stepper-row">
+          <button type="button" class="tt-step-btn tt-secondary" data-tt-action="step" data-tt-step-target="${escapeAttr(name)}" data-tt-step-delta="${-step}" aria-label="Verringern">−</button>
+          <input
+            class="tt-stepper-input"
+            name="${escapeAttr(name)}"
+            type="number"
+            inputmode="numeric"
+            pattern="[0-9\\-]*"
+            value="${value}"
+            ${minAttr}
+            ${maxAttr}
+            step="1"
+            required
+          />
+          <button type="button" class="tt-step-btn tt-secondary" data-tt-action="step" data-tt-step-target="${escapeAttr(name)}" data-tt-step-delta="${step}" aria-label="Erhöhen">+</button>
+        </div>
+        ${bigStep != null ? `<div class="tt-stepper-quick">${bigBtns}</div>` : ""}
+      </div>`;
   }
 
   function renderScoreboard(session, game) {
@@ -841,6 +1010,9 @@ export function createTabletopManager(config = {}) {
     }
     let count = Number(target.value);
     count = clamp(count, game.players.min, game.players.max);
+    if (String(count) !== target.value) {
+      target.value = String(count);
+    }
     const previous = [...setupNames];
     setupNames = defaultPlayerNames(count).map((fallback, i) => previous[i] || fallback);
     const namesHost = rootEl.querySelector("[data-tt-names]");
