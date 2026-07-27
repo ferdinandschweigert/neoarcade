@@ -1701,9 +1701,17 @@ body.menu-modal-open {
 /* --- Tabletop score counter --- */
 
 .tabletop-button {
+  display: inline-grid;
+  place-items: center;
   font-size: 1rem;
   line-height: 1;
   flex-shrink: 0;
+}
+
+.tabletop-button-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  display: block;
 }
 
 body.tabletop-open {
