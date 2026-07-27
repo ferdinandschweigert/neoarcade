@@ -45,57 +45,75 @@ export function createLayoutManager(config = {}) {
   for (const button of tabButtons) {
     button.addEventListener("click", () => {
       const view = button.dataset.view;
-      if (view) {
-        setView(view);
+      if (!view) {
+        return;
       }
+
+      // Tap the open modal tab again to close it.
+      if (view === activeView && MODAL_VIEWS.has(view)) {
+        closeModals();
+        return;
+      }
+
+      setView(view);
     });
   }
 
   for (const [name, overlay] of Object.entries(modals)) {
     overlay?.querySelectorAll("[data-close-modal]").forEach((button) => {
       button.addEventListener("click", () => {
-        const target = button.dataset.closeModal || name;
-        if (target === name || target === "play") {
-          setView("play");
-        }
+        closeModals();
       });
     });
 
     overlay?.addEventListener("click", (event) => {
       if (event.target === overlay) {
-        setView("play");
+        closeModals();
       }
     });
   }
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && MODAL_VIEWS.has(activeView)) {
-      setView("play");
+      closeModals();
     }
   });
 
   function syncModalOpenState(viewName) {
-    const modalOpen = MODAL_VIEWS.has(viewName);
-    document.body.classList.toggle("menu-modal-open", modalOpen);
+    document.body.classList.toggle("menu-modal-open", MODAL_VIEWS.has(viewName));
+  }
+
+  function syncTabActiveState(viewName) {
+    for (const button of tabButtons) {
+      button.classList.toggle("is-active", button.dataset.view === viewName);
+    }
+  }
+
+  function hideAllModals() {
+    for (const overlay of Object.values(modals)) {
+      overlay?.classList.add("hidden");
+    }
   }
 
   function setView(viewName) {
-    if (viewName !== "play" && !modals[viewName]) {
+    if (!MODAL_VIEWS.has(viewName) && viewName !== "play") {
       return;
     }
 
     activeView = viewName;
     document.body.dataset.view = viewName;
-    playView?.classList.remove("hidden");
 
-    for (const [name, overlay] of Object.entries(modals)) {
-      overlay?.classList.toggle("hidden", name !== viewName);
+    // Never force the play list visible while a game is open.
+    if (viewName === "play" && document.body.dataset.panel !== "game") {
+      playView?.classList.remove("hidden");
     }
 
-    for (const button of tabButtons) {
-      button.classList.toggle("is-active", button.dataset.view === viewName);
+    hideAllModals();
+    if (MODAL_VIEWS.has(viewName)) {
+      modals[viewName]?.classList.remove("hidden");
     }
 
+    syncTabActiveState(MODAL_VIEWS.has(viewName) ? viewName : "");
     syncModalOpenState(viewName);
 
     if (config.onViewChange) {
@@ -104,10 +122,19 @@ export function createLayoutManager(config = {}) {
   }
 
   function closeModals() {
-    setView("play");
+    const wasModal = MODAL_VIEWS.has(activeView);
+    activeView = "play";
+    document.body.dataset.view = "play";
+    hideAllModals();
+    syncTabActiveState("");
+    syncModalOpenState("play");
+
+    if (wasModal && config.onViewChange) {
+      config.onViewChange("play");
+    }
   }
 
-  setView(activeView);
+  setView("play");
 
   return {
     setView,

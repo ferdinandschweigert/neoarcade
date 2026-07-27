@@ -479,10 +479,9 @@ function showMenu() {
   activeGameId = null;
 
   gameScreenEl.classList.add("hidden");
-  playViewEl?.classList.remove("hidden");
-  layoutManager.setView("play");
   setActivePanel("menu");
-
+  playViewEl?.classList.remove("hidden");
+  layoutManager.closeModals();
   clearCanvas(context);
 
   if (lastFocusedGameCard instanceof HTMLElement) {
