@@ -1,29 +1,12 @@
 import { CANVAS_SIZE, clearCanvas } from "./games/shared.mjs";
-import { createSnakeGame } from "./games/snake.mjs";
-import { createPongGame } from "./games/pong.mjs";
-import { createBreakoutGame } from "./games/breakout.mjs";
-import { createPacmanGame } from "./games/pacman.mjs";
-import { createBlockfallGame } from "./games/blockfall.mjs";
-import { create2048Game } from "./games/g2048.mjs";
-import { createMemoryMatchGame } from "./games/memory.mjs";
-import { createMinefieldGame } from "./games/mines.mjs";
-import { createFroggerGame } from "./games/frogger.mjs";
-import { createAsteroidsGame } from "./games/asteroids.mjs";
-import { createInvadersGame } from "./games/invaders.mjs";
-import { createLabyrinthGame } from "./games/labyrinth.mjs";
-import { createGrannyRunGame } from "./games/grannyrun.mjs";
-import { createCloverQuestGame } from "./games/cloverquest.mjs";
-import { createAfterHoursArcadeGame } from "./games/afterhours.mjs";
 import { submitScore } from "./apiClient.mjs";
 import { createAuthManager } from "./auth.mjs";
 import { createLeaderboardView } from "./leaderboard.mjs";
 import { createStatsView } from "./stats.mjs";
-import { createLayoutManager } from "./ui/layout.mjs";
+import { CLASSIC_GAME_IDS, createLayoutManager, GAME_LABELS } from "./ui/layout.mjs";
 import { createInputManager } from "./input.mjs";
 import { createFeedbackUI } from "./ui/feedback.mjs";
 import { createResponsiveLayout } from "./ui/responsive.mjs";
-import { createTabletopManager } from "./tabletop/tabletop.mjs";
-import { createShareManager } from "./ui/share.mjs";
 import {
   safeStorageGet,
   safeStorageGetJson,
@@ -43,6 +26,7 @@ const LOWER_IS_BETTER_GAMES = new Set(["memory", "mines"]);
 const BEST_TOKEN_PATTERN = /(Best(?:\s+safe)?\s*:?\s*)(-|\d+(?:\.\d+)?(?:ms)?)/i;
 
 const DISPLAY_TITLES = {
+  ...GAME_LABELS,
   blockfall: "Tetris",
   g2048: "2048",
   invaders: "Space Invaders",
@@ -55,6 +39,27 @@ const DISPLAY_TITLES = {
   cloverquest: "Clover Quest",
   afterhours: "After Hours Arcade",
 };
+
+/** Dynamic loaders — game modules (and their sprite atlases) load on first play. */
+const GAME_LOADERS = {
+  snake: () => import("./games/snake.mjs").then((m) => m.createSnakeGame),
+  pong: () => import("./games/pong.mjs").then((m) => m.createPongGame),
+  breakout: () => import("./games/breakout.mjs").then((m) => m.createBreakoutGame),
+  pacman: () => import("./games/pacman.mjs").then((m) => m.createPacmanGame),
+  blockfall: () => import("./games/blockfall.mjs").then((m) => m.createBlockfallGame),
+  g2048: () => import("./games/g2048.mjs").then((m) => m.create2048Game),
+  asteroids: () => import("./games/asteroids.mjs").then((m) => m.createAsteroidsGame),
+  frogger: () => import("./games/frogger.mjs").then((m) => m.createFroggerGame),
+  invaders: () => import("./games/invaders.mjs").then((m) => m.createInvadersGame),
+  memory: () => import("./games/memory.mjs").then((m) => m.createMemoryMatchGame),
+  mines: () => import("./games/mines.mjs").then((m) => m.createMinefieldGame),
+  labyrinth: () => import("./games/labyrinth.mjs").then((m) => m.createLabyrinthGame),
+  grannyrun: () => import("./games/grannyrun.mjs").then((m) => m.createGrannyRunGame),
+  cloverquest: () => import("./games/cloverquest.mjs").then((m) => m.createCloverQuestGame),
+  afterhours: () => import("./games/afterhours.mjs").then((m) => m.createAfterHoursArcadeGame),
+};
+
+const PLAYABLE_GAME_IDS = CLASSIC_GAME_IDS.filter((id) => GAME_LOADERS[id]);
 
 const playViewEl = document.querySelector("#play-view");
 const rankingsViewEl = document.querySelector("#rankings-view");
@@ -97,23 +102,9 @@ stageCanvas.height = CANVAS_SIZE;
 
 const context = stageCanvas.getContext("2d");
 
-const games = {
-  snake: createSnakeGame(context),
-  pong: createPongGame(context),
-  breakout: createBreakoutGame(context),
-  pacman: createPacmanGame(context),
-  blockfall: createBlockfallGame(context),
-  g2048: create2048Game(context),
-  asteroids: createAsteroidsGame(context),
-  frogger: createFroggerGame(context),
-  invaders: createInvadersGame(context),
-  memory: createMemoryMatchGame(context),
-  mines: createMinefieldGame(context),
-  labyrinth: createLabyrinthGame(context),
-  grannyrun: createGrannyRunGame(context),
-  cloverquest: createCloverQuestGame(context),
-  afterhours: createAfterHoursArcadeGame(context),
-};
+/** Cached game instances, created on first play. */
+const games = Object.create(null);
+const gameLoadPromises = Object.create(null);
 
 const gameCardBestEls = new Map();
 const { setAppStatus } = createFeedbackUI({ appStatusEl });
@@ -136,24 +127,30 @@ const authManager = createAuthManager({
   },
 });
 
-const tabletopManager = createTabletopManager({
-  rootEl: document.querySelector("#tabletop-overlay"),
+wireDeferredOverlay({
   openButtonEl: document.querySelector("#tabletop-button"),
-  closeButtonEl: document.querySelector("#tabletop-close-button"),
+  load: () => import("./tabletop/tabletop.mjs").then((m) => m.createTabletopManager),
+  createConfig: (openButtonEl) => ({
+    rootEl: document.querySelector("#tabletop-overlay"),
+    openButtonEl,
+    closeButtonEl: document.querySelector("#tabletop-close-button"),
+  }),
 });
-tabletopManager.init();
 
-const shareManager = createShareManager({
-  rootEl: document.querySelector("#share-overlay"),
+wireDeferredOverlay({
   openButtonEl: document.querySelector("#share-button"),
-  closeButtonEl: document.querySelector("#share-close-button"),
-  qrEl: document.querySelector("#share-qr"),
-  urlEl: document.querySelector("#share-url"),
-  messageEl: document.querySelector("#share-message"),
-  nativeShareButtonEl: document.querySelector("#share-native-button"),
-  copyButtonEl: document.querySelector("#share-copy-button"),
+  load: () => import("./ui/share.mjs").then((m) => m.createShareManager),
+  createConfig: (openButtonEl) => ({
+    rootEl: document.querySelector("#share-overlay"),
+    openButtonEl,
+    closeButtonEl: document.querySelector("#share-close-button"),
+    qrEl: document.querySelector("#share-qr"),
+    urlEl: document.querySelector("#share-url"),
+    messageEl: document.querySelector("#share-message"),
+    nativeShareButtonEl: document.querySelector("#share-native-button"),
+    copyButtonEl: document.querySelector("#share-copy-button"),
+  }),
 });
-shareManager.init();
 
 const layoutManager = createLayoutManager({
   tabButtons: document.querySelectorAll(".app-tab"),
@@ -225,23 +222,25 @@ let loopPausedForVisibility = false;
 let lastFocusedGameCard = null;
 let controlMode = loadControlModeSetting();
 let isAuthenticated = false;
+let startGameToken = 0;
+let isStartingGame = false;
 
 for (const gameButton of gameButtons) {
   gameButton.addEventListener("click", () => {
     const gameId = gameButton.dataset.game;
-    if (games[gameId]) {
+    if (GAME_LOADERS[gameId]) {
       lastFocusedGameCard = gameButton;
-      startGame(gameId);
+      void startGame(gameId);
     }
   });
 }
 
 if (randomGameButton) {
   randomGameButton.addEventListener("click", () => {
-    const ids = Object.keys(games);
+    const ids = PLAYABLE_GAME_IDS;
     const randomGameId = ids[Math.floor(Math.random() * ids.length)];
     if (randomGameId) {
-      startGame(randomGameId);
+      void startGame(randomGameId);
     }
   });
 }
@@ -422,13 +421,96 @@ function applyGameStageAspect(game) {
   });
 }
 
-function startGame(gameId) {
+/**
+ * Lazy-init an overlay manager on first open-button click.
+ * Replaces the temporary click listener with the real manager's init.
+ */
+function wireDeferredOverlay({ openButtonEl, load, createConfig }) {
+  if (!openButtonEl) {
+    return;
+  }
+
+  let managerPromise = null;
+  let opening = false;
+
+  async function ensureManager() {
+    if (!managerPromise) {
+      managerPromise = load().then((createManager) => {
+        const manager = createManager(createConfig(openButtonEl));
+        manager.init();
+        return manager;
+      });
+    }
+    return managerPromise;
+  }
+
+  async function onFirstOpen(event) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (opening) {
+      return;
+    }
+
+    opening = true;
+    try {
+      const manager = await ensureManager();
+      openButtonEl.removeEventListener("click", onFirstOpen, true);
+      manager.open();
+    } catch (error) {
+      console.error(error);
+      setAppStatus("Could not load this feature.", true, 4000);
+      managerPromise = null;
+    } finally {
+      opening = false;
+    }
+  }
+
+  openButtonEl.addEventListener("click", onFirstOpen, true);
+}
+
+async function ensureGameLoaded(gameId) {
+  if (games[gameId]) {
+    return games[gameId];
+  }
+
+  const loader = GAME_LOADERS[gameId];
+  if (!loader) {
+    throw new Error(`Unknown game: ${gameId}`);
+  }
+
+  if (!gameLoadPromises[gameId]) {
+    gameLoadPromises[gameId] = loader()
+      .then((createGame) => {
+        const game = createGame(context);
+        games[gameId] = game;
+        return game;
+      })
+      .catch((error) => {
+        delete gameLoadPromises[gameId];
+        throw error;
+      });
+  }
+
+  return gameLoadPromises[gameId];
+}
+
+async function startGame(gameId) {
+  if (!GAME_LOADERS[gameId] || isStartingGame) {
+    return;
+  }
+
+  isStartingGame = true;
+  const token = ++startGameToken;
+
   stopLoop();
   inputManager.resetGamepadStates();
 
+  if (activeGame) {
+    activeGame.stop();
+    activeGame = null;
+  }
+
   activeGameId = gameId;
-  activeGame = games[gameId];
-  applyDifficultyToGame(activeGame);
   recordRecentGame(gameId);
 
   for (const view of [playViewEl, rankingsViewEl, statsViewEl, settingsViewEl]) {
@@ -436,27 +518,67 @@ function startGame(gameId) {
   }
   gameScreenEl.classList.remove("hidden");
   setActivePanel("game");
-  applyGameStageAspect(activeGame);
 
-  gameTitleEl.textContent = DISPLAY_TITLES[gameId] || activeGame.title;
-  inputManager.renderTouchControls(activeGame.controlScheme);
-  updateControlsHints();
-
-  activeGame.start();
-  drawFrame();
-  scheduleTick();
-
-  if (isTouchDevice && !hasSeenControlsHint()) {
-    showControlsOverlay(true);
+  gameTitleEl.textContent = DISPLAY_TITLES[gameId] || GAME_LABELS[gameId] || gameId;
+  if (statusEl) {
+    statusEl.textContent = "Loading…";
   }
+  if (scoreEl) {
+    scoreEl.textContent = "Score: -";
+  }
+  if (bestHudEl) {
+    const savedBest = savedBestByGame[gameId];
+    bestHudEl.textContent = Number.isFinite(savedBest)
+      ? `Best: ${formatMetric(gameId, savedBest)}`
+      : "Best: -";
+  }
+  pauseButton.disabled = true;
+  inputManager.renderTouchControls(null);
+  clearCanvas(context);
 
-  stageCanvas.focus();
-  requestAnimationFrame(() => {
-    syncGameStageLayout();
-  });
+  try {
+    const game = await ensureGameLoaded(gameId);
+    if (token !== startGameToken) {
+      return;
+    }
+
+    activeGame = game;
+    applyDifficultyToGame(activeGame);
+    applyGameStageAspect(activeGame);
+
+    gameTitleEl.textContent = DISPLAY_TITLES[gameId] || activeGame.title;
+    inputManager.renderTouchControls(activeGame.controlScheme);
+    updateControlsHints();
+
+    activeGame.start();
+    pauseButton.disabled = false;
+    drawFrame();
+    scheduleTick();
+
+    if (isTouchDevice && !hasSeenControlsHint()) {
+      showControlsOverlay(true);
+    }
+
+    stageCanvas.focus();
+    requestAnimationFrame(() => {
+      syncGameStageLayout();
+    });
+  } catch (error) {
+    console.error(error);
+    setAppStatus("Could not load game.", true, 4000);
+    if (token === startGameToken) {
+      showMenu();
+    }
+  } finally {
+    if (token === startGameToken) {
+      isStartingGame = false;
+    }
+  }
 }
 
 function showMenu() {
+  startGameToken += 1;
+  isStartingGame = false;
   stopLoop();
   inputManager.resetGamepadStates();
   inputManager.stopTouchHold();
@@ -740,7 +862,7 @@ function refreshGameCardBestLabels() {
 function loadRecentGames() {
   const stored = safeStorageGetJson(STORAGE_KEYS.RECENT_GAMES, []);
   return Array.isArray(stored)
-    ? stored.filter((id) => typeof id === "string" && games[id]).slice(0, 5)
+    ? stored.filter((id) => typeof id === "string" && GAME_LOADERS[id]).slice(0, 5)
     : [];
 }
 
@@ -767,17 +889,16 @@ function renderRecentGames() {
   recentGamesEl.classList.remove("hidden");
 
   for (const gameId of recent) {
-    const game = games[gameId];
-    if (!game) {
+    if (!GAME_LOADERS[gameId]) {
       continue;
     }
 
     const chip = document.createElement("button");
     chip.type = "button";
     chip.className = "recent-chip";
-    chip.textContent = DISPLAY_TITLES[gameId] || game.title;
+    chip.textContent = DISPLAY_TITLES[gameId] || GAME_LABELS[gameId] || gameId;
     chip.addEventListener("click", () => {
-      startGame(gameId);
+      void startGame(gameId);
     });
     recentGamesListEl.appendChild(chip);
   }
