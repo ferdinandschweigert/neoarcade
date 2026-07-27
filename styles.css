@@ -521,65 +521,41 @@ body:not([data-panel="game"]) .app::after {
 }
 
 .game-icon {
-  display: grid;
-  width: 2rem;
-  height: 2rem;
-  place-items: center;
+  display: block;
+  width: 2.15rem;
+  height: 2.15rem;
   border: 2px solid var(--lcd-ink);
-  border-radius: 0.24rem;
-  background: var(--card-accent);
+  border-radius: 0.35rem;
+  background-color: var(--lcd-light);
+  background-image: var(--game-icon);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+  box-shadow: 0 2px 0 rgba(40, 48, 67, 0.18);
   color: transparent;
   font-size: 0;
-  image-rendering: pixelated;
+  image-rendering: auto;
 }
 
 .game-icon::after {
-  color: var(--lcd-ink);
-  font-size: 0.82rem;
-  font-weight: 950;
-  letter-spacing: -0.08em;
+  content: none;
 }
 
-.game-card[data-game="snake"] .game-icon::after { content: "SN"; }
-.game-card[data-game="blockfall"] .game-icon::after { content: "TF"; }
-.game-card[data-game="g2048"] .game-icon::after { content: "20"; }
-.game-card[data-game="pong"] .game-icon::after { content: "PG"; }
-.game-card[data-game="breakout"] .game-icon::after { content: "BR"; }
-.game-card[data-game="pacman"] .game-icon::after { content: "PM"; }
-.game-card[data-game="asteroids"] .game-icon::after { content: "AS"; }
-.game-card[data-game="frogger"] .game-icon::after { content: "FR"; }
-.game-card[data-game="invaders"] .game-icon::after { content: "SI"; }
-.game-card[data-game="memory"] .game-icon::after { content: "MM"; }
-.game-card[data-game="mines"] .game-icon::after { content: "MF"; }
-
-.game-card[data-game="labyrinth"] .game-icon,
-.game-card[data-game="grannyrun"] .game-icon {
-  background-color: var(--card-accent);
-  background-repeat: no-repeat;
-  background-size: 200% 200%;
-}
-
-.game-card[data-game="cloverquest"] .game-icon {
-  background: var(--lime);
-}
-
-.game-card[data-game="cloverquest"] .game-icon::after { content: "CQ"; }
-
-.game-card[data-game="afterhours"] .game-icon {
-  background: var(--violet);
-}
-
-.game-card[data-game="afterhours"] .game-icon::after { content: "AH"; }
-
-.game-card[data-game="labyrinth"] .game-icon {
-  background-image: url("./assets/lcd-labyrinth-sprites.png");
-  background-position: left top;
-}
-
-.game-card[data-game="grannyrun"] .game-icon {
-  background-image: url("./assets/granny-rooftop-sprites-v2.png");
-  background-position: left top;
-}
+.game-card[data-game="snake"] { --game-icon: url("./assets/game-icons/snake.svg"); }
+.game-card[data-game="blockfall"] { --game-icon: url("./assets/game-icons/blockfall.svg"); }
+.game-card[data-game="g2048"] { --game-icon: url("./assets/game-icons/g2048.svg"); }
+.game-card[data-game="pong"] { --game-icon: url("./assets/game-icons/pong.svg"); }
+.game-card[data-game="breakout"] { --game-icon: url("./assets/game-icons/breakout.svg"); }
+.game-card[data-game="pacman"] { --game-icon: url("./assets/game-icons/pacman.svg"); }
+.game-card[data-game="asteroids"] { --game-icon: url("./assets/game-icons/asteroids.svg"); }
+.game-card[data-game="frogger"] { --game-icon: url("./assets/game-icons/frogger.svg"); }
+.game-card[data-game="invaders"] { --game-icon: url("./assets/game-icons/invaders.svg"); }
+.game-card[data-game="memory"] { --game-icon: url("./assets/game-icons/memory.svg"); }
+.game-card[data-game="mines"] { --game-icon: url("./assets/game-icons/mines.svg"); }
+.game-card[data-game="labyrinth"] { --game-icon: url("./assets/game-icons/labyrinth.svg"); }
+.game-card[data-game="grannyrun"] { --game-icon: url("./assets/game-icons/grannyrun.svg"); }
+.game-card[data-game="cloverquest"] { --game-icon: url("./assets/game-icons/cloverquest.svg"); }
+.game-card[data-game="afterhours"] { --game-icon: url("./assets/game-icons/afterhours.svg"); }
 
 .game-card-title {
   font-size: 0.82rem;
