@@ -94,13 +94,6 @@
         </div>
       </header>
 
-      <nav class="app-tabs" aria-label="Main navigation">
-        <button class="app-tab is-active" type="button" data-view="play">Play</button>
-        <button class="app-tab" type="button" data-view="rankings">Rankings</button>
-        <button class="app-tab" type="button" data-view="stats">My Stats</button>
-        <button class="app-tab" type="button" data-view="settings">Settings</button>
-      </nav>
-
       <main class="app">
         <section id="play-view" class="view-panel">
           <div class="view-heading">
@@ -110,12 +103,11 @@
 
           <p id="app-status" class="app-status" aria-live="polite"></p>
 
-          <div id="recent-games" class="recent-games hidden" aria-label="Recently played">
-            <span class="recent-label">Recent</span>
-            <div id="recent-games-list" class="recent-games-list"></div>
-          </div>
-
-          <div class="menu-toolbar">
+          <div class="play-quickbar">
+            <div id="recent-games" class="recent-games hidden" aria-label="Recently played">
+              <span class="recent-label">Recent</span>
+              <div id="recent-games-list" class="recent-games-list"></div>
+            </div>
             <button id="random-game-button" class="random-button" type="button">Random classic</button>
           </div>
 
@@ -316,6 +308,13 @@
           </footer>
         </section>
       </main>
+
+      <nav class="app-tabs" aria-label="Main navigation">
+        <button class="app-tab is-active" type="button" data-view="play">Play</button>
+        <button class="app-tab" type="button" data-view="rankings">Rankings</button>
+        <button class="app-tab" type="button" data-view="stats">My Stats</button>
+        <button class="app-tab" type="button" data-view="settings">Settings</button>
+      </nav>
     </div>
 
     <script type="module" src="./src/main.mjs"></script>
