@@ -57,9 +57,10 @@ const DISPLAY_TITLES = {
 };
 
 const playViewEl = document.querySelector("#play-view");
+const rankingsOverlayEl = document.querySelector("#rankings-overlay");
+const statsOverlayEl = document.querySelector("#stats-overlay");
+const settingsOverlayEl = document.querySelector("#settings-overlay");
 const rankingsViewEl = document.querySelector("#rankings-view");
-const statsViewEl = document.querySelector("#stats-view");
-const settingsViewEl = document.querySelector("#settings-view");
 const gameScreenEl = document.querySelector("#game-screen");
 const gameTitleEl = document.querySelector("#game-title");
 const gameButtons = document.querySelectorAll("[data-game]");
@@ -157,11 +158,11 @@ shareManager.init();
 
 const layoutManager = createLayoutManager({
   tabButtons: document.querySelectorAll(".app-tab"),
-  views: {
-    play: playViewEl,
-    rankings: rankingsViewEl,
-    stats: statsViewEl,
-    settings: settingsViewEl,
+  playView: playViewEl,
+  modals: {
+    rankings: rankingsOverlayEl,
+    stats: statsOverlayEl,
+    settings: settingsOverlayEl,
   },
   onViewChange: (viewName) => {
     if (viewName === "rankings") {
@@ -442,9 +443,8 @@ function startGame(gameId) {
   applyDifficultyToGame(activeGame);
   recordRecentGame(gameId);
 
-  for (const view of [playViewEl, rankingsViewEl, statsViewEl, settingsViewEl]) {
-    view?.classList.add("hidden");
-  }
+  playViewEl?.classList.add("hidden");
+  layoutManager.closeModals();
   gameScreenEl.classList.remove("hidden");
   setActivePanel("game");
   applyGameStageAspect(activeGame);
@@ -479,7 +479,8 @@ function showMenu() {
   activeGameId = null;
 
   gameScreenEl.classList.add("hidden");
-  layoutManager.setView(layoutManager.getActiveView());
+  playViewEl?.classList.remove("hidden");
+  layoutManager.setView("play");
   setActivePanel("menu");
 
   clearCanvas(context);
