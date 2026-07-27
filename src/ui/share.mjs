@@ -1,7 +1,7 @@
 import { renderSVG } from "../vendor/uqr.mjs";
 
-const DEFAULT_TITLE = "Brain Break Arcade";
-const DEFAULT_TEXT = "Klassische Brain-Break-Spiele zum gemeinsamen Spielen.";
+const DEFAULT_TITLE = "NeoArcade";
+const DEFAULT_TEXT = "Klassische Arcade-Spiele zum gemeinsamen Spielen.";
 
 function getShareUrl() {
   if (typeof location !== "undefined" && location.href) {

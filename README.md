@@ -1,6 +1,6 @@
-# Brain Break Arcade
+# NeoArcade
 
-Thirteen classic browser games for short brain breaks between work sessions — with friend sign-in and rankings on Vercel.
+Thirteen classic browser games for short breaks between work sessions — with friend sign-in and rankings on Vercel.
 
 Play at **[neoarcade.vercel.app](https://neoarcade.vercel.app)**.
 

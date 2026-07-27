@@ -867,7 +867,7 @@ body[data-panel="game"] .app-shell {
 }
 
 body[data-panel="game"] .app-shell::before {
-  content: "BRAIN BREAK • LCD PLAY";
+  content: "NEOARCADE • LCD PLAY";
 }
 
 body[data-panel="game"] .app {
