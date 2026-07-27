@@ -7,24 +7,44 @@ export function createPongGame(ctx) {
   const ballRadius = 8;
   const paddleMargin = 18;
 
+  // CPU is intentionally imperfect: slower than the player, delayed reactions,
+  // noisy aim, and occasional misses so matches stay winnable.
   const difficultyPresets = {
     easy: {
-      playerStep: 7.8,
-      cpuStep: 3.5,
-      baseBallSpeed: 3.8,
-      winScore: 6,
+      playerStep: 8.2,
+      cpuStep: 2.9,
+      cpuIdleStep: 1.5,
+      baseBallSpeed: 3.7,
+      winScore: 5,
+      cpuError: 64,
+      cpuReactionTicks: 10,
+      cpuDeadZone: 16,
+      cpuMissChance: 0.2,
+      cpuTrackLead: 0.62,
     },
     normal: {
-      playerStep: 7,
-      cpuStep: 4.5,
-      baseBallSpeed: 4.2,
+      playerStep: 7.4,
+      cpuStep: 3.35,
+      cpuIdleStep: 1.8,
+      baseBallSpeed: 4.1,
       winScore: 7,
+      cpuError: 44,
+      cpuReactionTicks: 7,
+      cpuDeadZone: 13,
+      cpuMissChance: 0.14,
+      cpuTrackLead: 0.75,
     },
     hard: {
-      playerStep: 6.4,
-      cpuStep: 5.5,
-      baseBallSpeed: 4.8,
+      playerStep: 6.9,
+      cpuStep: 4.2,
+      cpuIdleStep: 2.2,
+      baseBallSpeed: 4.6,
       winScore: 9,
+      cpuError: 24,
+      cpuReactionTicks: 4,
+      cpuDeadZone: 10,
+      cpuMissChance: 0.06,
+      cpuTrackLead: 0.9,
     },
   };
 
@@ -53,6 +73,9 @@ export function createPongGame(ctx) {
       ballY: CANVAS_SIZE / 2,
       ballVx: preset.baseBallSpeed,
       ballVy: preset.baseBallSpeed * 0.52,
+      cpuAimOffset: 0,
+      cpuReaction: 0,
+      cpuTargetY: CANVAS_SIZE / 2,
     };
   }
 
@@ -65,12 +88,23 @@ export function createPongGame(ctx) {
   function resetBall(towardsPlayer) {
     const preset = currentPreset();
     const direction = towardsPlayer ? -1 : 1;
-    const speed = preset.baseBallSpeed + (state.level - 1) * 0.28;
+    const speed = preset.baseBallSpeed + (state.level - 1) * 0.22;
 
     state.ballX = CANVAS_SIZE / 2;
     state.ballY = CANVAS_SIZE / 2;
     state.ballVx = speed * direction;
-    state.ballVy = (Math.random() * (speed * 0.8) + speed * 0.3) * (Math.random() > 0.5 ? 1 : -1);
+    state.ballVy = (Math.random() * (speed * 0.85) + speed * 0.28) * (Math.random() > 0.5 ? 1 : -1);
+    prepareCpuForIncomingRally(preset);
+  }
+
+  function prepareCpuForIncomingRally(preset = currentPreset()) {
+    const willMiss = Math.random() < preset.cpuMissChance;
+    const missSign = Math.random() > 0.5 ? 1 : -1;
+    state.cpuAimOffset = willMiss
+      ? missSign * (paddleHeight * 0.55 + Math.random() * paddleHeight * 0.35)
+      : (Math.random() - 0.5) * preset.cpuError;
+    state.cpuReaction = preset.cpuReactionTicks + Math.floor(Math.random() * 4);
+    state.cpuTargetY = CANVAS_SIZE / 2;
   }
 
   function clampPaddles() {
@@ -82,10 +116,77 @@ export function createPongGame(ctx) {
     const maxVy = 8.2 + state.level * 0.24;
     state.ballVy = clamp(state.ballVy + offset * 1.6, -maxVy, maxVy);
 
-    const speedBoost = 1 + Math.min(0.16, state.level * 0.02);
+    const speedBoost = 1 + Math.min(0.14, state.level * 0.018);
     state.ballVx *= speedBoost;
-    const maxVx = 8.8 + state.level * 0.26;
+    const maxVx = 8.4 + state.level * 0.22;
     state.ballVx = clamp(state.ballVx, -maxVx, maxVx);
+  }
+
+  function predictBallYAt(targetX) {
+    let x = state.ballX;
+    let y = state.ballY;
+    let vx = state.ballVx;
+    let vy = state.ballVy;
+
+    if (vx <= 0) {
+      return y;
+    }
+
+    for (let step = 0; step < 2400; step += 1) {
+      x += vx;
+      y += vy;
+
+      if (y - ballRadius <= 0) {
+        y = ballRadius;
+        vy = Math.abs(vy);
+      } else if (y + ballRadius >= CANVAS_SIZE) {
+        y = CANVAS_SIZE - ballRadius;
+        vy = -Math.abs(vy);
+      }
+
+      if (x >= targetX) {
+        return y;
+      }
+    }
+
+    return y;
+  }
+
+  function updateCpu(preset) {
+    const cpuPaddleX = CANVAS_SIZE - paddleMargin - paddleWidth;
+    const ballComing = state.ballVx > 0;
+    const cpuCenter = state.cpuY + paddleHeight / 2;
+
+    if (state.cpuReaction > 0) {
+      state.cpuReaction -= 1;
+    }
+
+    if (ballComing && state.cpuReaction <= 0) {
+      const predictedY = predictBallYAt(cpuPaddleX);
+      // Blend prediction with live ball Y so the CPU is not laser-perfect.
+      const blended = predictedY * preset.cpuTrackLead + state.ballY * (1 - preset.cpuTrackLead);
+      state.cpuTargetY = blended + state.cpuAimOffset;
+    } else if (!ballComing) {
+      // Drift toward center while the ball is on the player's side.
+      state.cpuTargetY = CANVAS_SIZE / 2 + state.cpuAimOffset * 0.15;
+    }
+
+    const desiredCenter = clamp(
+      state.cpuTargetY,
+      paddleHeight / 2,
+      CANVAS_SIZE - paddleHeight / 2,
+    );
+    const delta = desiredCenter - cpuCenter;
+    const deadZone = preset.cpuDeadZone;
+    if (Math.abs(delta) <= deadZone) {
+      return;
+    }
+
+    const maxStep = ballComing && state.cpuReaction <= 0
+      ? preset.cpuStep + state.level * 0.08
+      : preset.cpuIdleStep;
+    const step = Math.sign(delta) * Math.min(Math.abs(delta), maxStep);
+    state.cpuY += step;
   }
 
   return {
@@ -101,6 +202,7 @@ export function createPongGame(ctx) {
     },
     start() {
       state = createState();
+      prepareCpuForIncomingRally();
     },
     stop() {
       if (state.status === "running") {
@@ -121,16 +223,7 @@ export function createPongGame(ctx) {
         state.playerY += preset.playerStep;
       }
 
-      const cpuCenter = state.cpuY + paddleHeight / 2;
-      const cpuDeadZone = 8 - Math.min(5, state.level * 0.4);
-      const cpuSpeed = preset.cpuStep + state.level * 0.16;
-
-      if (cpuCenter < state.ballY - cpuDeadZone) {
-        state.cpuY += cpuSpeed;
-      } else if (cpuCenter > state.ballY + cpuDeadZone) {
-        state.cpuY -= cpuSpeed;
-      }
-
+      updateCpu(preset);
       clampPaddles();
 
       state.ballX += state.ballVx;
@@ -138,6 +231,7 @@ export function createPongGame(ctx) {
 
       if (state.ballY - ballRadius <= 0 || state.ballY + ballRadius >= CANVAS_SIZE) {
         state.ballVy *= -1;
+        state.ballY = clamp(state.ballY, ballRadius, CANVAS_SIZE - ballRadius);
       }
 
       const playerPaddleX = paddleMargin;
@@ -146,24 +240,27 @@ export function createPongGame(ctx) {
       if (
         state.ballVx < 0 &&
         state.ballX - ballRadius <= playerPaddleX + paddleWidth &&
-        state.ballX - ballRadius >= playerPaddleX &&
+        state.ballX - ballRadius >= playerPaddleX - 2 &&
         state.ballY >= state.playerY &&
         state.ballY <= state.playerY + paddleHeight
       ) {
         const offset = (state.ballY - (state.playerY + paddleHeight / 2)) / (paddleHeight / 2);
         state.ballVx = Math.abs(state.ballVx);
+        state.ballX = playerPaddleX + paddleWidth + ballRadius;
         addSpinAndSpeed(offset);
+        prepareCpuForIncomingRally(preset);
       }
 
       if (
         state.ballVx > 0 &&
         state.ballX + ballRadius >= cpuPaddleX &&
-        state.ballX + ballRadius <= cpuPaddleX + paddleWidth &&
+        state.ballX + ballRadius <= cpuPaddleX + paddleWidth + 2 &&
         state.ballY >= state.cpuY &&
         state.ballY <= state.cpuY + paddleHeight
       ) {
         const offset = (state.ballY - (state.cpuY + paddleHeight / 2)) / (paddleHeight / 2);
         state.ballVx = -Math.abs(state.ballVx);
+        state.ballX = cpuPaddleX - ballRadius;
         addSpinAndSpeed(offset);
       }
 
@@ -270,12 +367,16 @@ export function createPongGame(ctx) {
     },
     restart() {
       state = createState();
+      prepareCpuForIncomingRally();
     },
     getTickMs() {
       return 16;
     },
+    /** @internal test helper */
+    getDebugState() {
+      return state;
+    },
     getHud() {
-      const scoreLine = `Player ${state.playerScore} : ${state.cpuScore} CPU | Level: ${state.level} | Best: ${Math.max(state.playerScore, 0)} `;
       if (state.status === "game_over") {
         const winner = state.playerScore > state.cpuScore ? "You win" : "CPU wins";
         return {
