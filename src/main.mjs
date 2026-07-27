@@ -246,7 +246,7 @@ if (randomGameButton) {
   });
 }
 
-if (controlModeSelectEl instanceof HTMLSelectElement) {
+  if (controlModeSelectEl instanceof HTMLSelectElement) {
   controlModeSelectEl.value = controlMode;
   controlModeSelectEl.addEventListener("change", () => {
     const nextMode = String(controlModeSelectEl.value || "auto").toLowerCase();
@@ -254,6 +254,7 @@ if (controlModeSelectEl instanceof HTMLSelectElement) {
     persistControlModeSetting();
     if (activeGame) {
       inputManager.renderTouchControls(activeGame.controlScheme);
+      scheduleGameStageLayoutSync();
     }
   });
 }
@@ -371,13 +372,16 @@ function syncGameStageLayout() {
   const bottomBar = gameScreenEl.querySelector(".game-bottom-bar");
   const stageStack = gameScreenEl.querySelector(".game-stage-stack");
   const touchControls = gameScreenEl.querySelector("#touch-controls");
-  const touchControlsHeight = touchControls?.offsetHeight ?? 0;
   const stageGap = stageStack
     ? Number.parseFloat(window.getComputedStyle(stageStack).gap) || 0
     : 0;
+  const touchControlsHeight = touchControls && !touchControls.classList.contains("is-empty")
+    ? Math.max(touchControls.scrollHeight, touchControls.offsetHeight, 1)
+    : 0;
+  const availableStackHeight = stageStack?.clientHeight ?? 0;
   const stageSpace = Math.max(
-    0,
-    (stageStack?.clientHeight ?? 0)
+    120,
+    availableStackHeight
       - touchControlsHeight
       - (touchControlsHeight > 0 ? stageGap : 0),
   );
@@ -396,6 +400,15 @@ function syncGameStageLayout() {
     "--game-stage-space",
     `${Math.floor(stageSpace)}px`,
   );
+}
+
+function scheduleGameStageLayoutSync() {
+  requestAnimationFrame(() => {
+    syncGameStageLayout();
+    requestAnimationFrame(() => {
+      syncGameStageLayout();
+    });
+  });
 }
 
 function setActivePanel(panelName) {
@@ -417,9 +430,7 @@ function applyGameStageAspect(game) {
   if (gameScreenEl) {
     gameScreenEl.dataset.stageAspect = aspect;
   }
-  requestAnimationFrame(() => {
-    syncGameStageLayout();
-  });
+  scheduleGameStageLayoutSync();
 }
 
 function startGame(gameId) {
@@ -451,9 +462,7 @@ function startGame(gameId) {
   }
 
   stageCanvas.focus();
-  requestAnimationFrame(() => {
-    syncGameStageLayout();
-  });
+  scheduleGameStageLayoutSync();
 }
 
 function showMenu() {

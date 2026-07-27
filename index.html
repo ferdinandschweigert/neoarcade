@@ -251,16 +251,16 @@
               </select>
             </label>
             <label class="settings-field" for="control-mode-select">
-              Controls
+              Touch controls
               <select id="control-mode-select">
-                <option value="auto" selected>Auto</option>
+                <option value="auto" selected>Auto (swipe on board)</option>
+                <option value="gestures">Gestures only</option>
                 <option value="both">Buttons + Gestures</option>
-                <option value="buttons">Buttons</option>
-                <option value="gestures">Gestures</option>
+                <option value="buttons">Buttons only</option>
               </select>
             </label>
           </div>
-          <p class="settings-note">Sign in to sync scores and appear on friend rankings at neoarcade.vercel.app.</p>
+          <p class="settings-note">Phone: swipe/tap on the game board. Laptop/PC: keyboard only. Optional on-screen buttons via settings. Sign in to sync scores at neoarcade.vercel.app.</p>
         </section>
 
         <section id="game-screen" class="panel hidden game-play-layout">
@@ -295,7 +295,7 @@
               </div>
             </div>
 
-            <div id="touch-controls" class="touch-controls" aria-label="Touch controls"></div>
+            <div id="touch-controls" class="touch-controls is-empty" aria-label="Touch controls"></div>
           </div>
 
           <footer class="game-bottom-bar">

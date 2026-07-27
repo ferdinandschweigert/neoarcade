@@ -62,18 +62,18 @@ export const SCHEME_ACTION_ARIA_LABELS = {
 };
 
 export const DEFAULT_CONTROL_HINTS = {
-  action: "Press Action to start or interact.",
-  dpad: "Swipe or use the D-pad to move.",
-  horizontal: "Swipe left/right or use on-screen buttons.",
-  vertical: "Swipe up/down or use on-screen buttons.",
-  hfire: "Move with left/right. Fire or jump with up.",
-  grid_select: "Tap a cell or use D-pad + Select.",
-  grid_select_flag: "Tap to reveal. Long-press or Flag to mark.",
-  horizontal_select: "Move left/right, then Select to confirm.",
-  select_only: "Tap or press Action to play.",
+  action: "Tap the board to start or interact.",
+  dpad: "Swipe on the board to move.",
+  horizontal: "Swipe left/right on the board.",
+  vertical: "Swipe up/down on the board.",
+  hfire: "Swipe left/right to move. Swipe up or tap to fire/jump.",
+  grid_select: "Tap a cell to play.",
+  grid_select_flag: "Tap to reveal. Long-press to flag.",
+  horizontal_select: "Swipe left/right, tap to confirm.",
+  select_only: "Tap the board to play.",
   jump_cane: "Up/W jump (hold to flip). Down/S or Cane to swing on wires.",
   shop_nav: "Left/Right to browse. Select to buy or continue.",
-  none: "Use swipe gestures on the game board.",
+  none: "Swipe on the board to play.",
 };
 
 export const GAMEPAD_AXIS_THRESHOLD = 0.54;
@@ -96,6 +96,7 @@ export const GAMEPAD_BUTTON_EDGE_MAP = [
 
 const TOUCH_HOLD_INITIAL_MS = 160;
 const TOUCH_HOLD_REPEAT_MS = 80;
+const GESTURE_HOLD_MS = 200;
 const DEFAULT_SWIPE_MIN = 24;
 const DEFAULT_LONG_PRESS_MS = 320;
 
@@ -113,31 +114,26 @@ export function getControlHintForGame(game) {
 
 export function shouldShowTouchButtons(controlMode, isTouchDevice, schemeName) {
   const scheme = CONTROL_SCHEMES[schemeName] ?? CONTROL_SCHEMES.none;
-  if (scheme.length === 0) {
+  if (!isTouchDevice || scheme.length === 0) {
     return false;
   }
 
-  if (controlMode === "buttons" || controlMode === "both") {
-    return true;
-  }
-
-  if (controlMode === "gestures") {
-    return false;
-  }
-
-  return isTouchDevice;
+  // Phone default (auto) and gestures: play by swiping/tapping the board.
+  // On-screen pads only when explicitly requested.
+  return controlMode === "buttons" || controlMode === "both";
 }
 
 export function shouldUseGestures(controlMode, isTouchDevice) {
-  if (controlMode === "gestures" || controlMode === "both") {
-    return true;
+  if (!isTouchDevice) {
+    return false;
   }
 
   if (controlMode === "buttons") {
     return false;
   }
 
-  return isTouchDevice;
+  // auto / gestures / both → touch the game board
+  return true;
 }
 
 export function createInputManager(options) {
@@ -158,6 +154,8 @@ export function createInputManager(options) {
 
   let touchHoldTimer = null;
   let touchHoldAction = null;
+  let suppressButtonClick = false;
+  let suppressButtonClickTimer = null;
   let swipeTouchStartX = 0;
   let swipeTouchStartY = 0;
   let swipeTouchId = null;
@@ -183,15 +181,29 @@ export function createInputManager(options) {
 
   function releaseControl(action) {
     const game = getActiveGame();
-    if (!game || typeof game.onControlUp !== "function") {
+    if (!game) {
       return false;
     }
 
-    const changed = game.onControlUp(action);
+    let changed = false;
+    if (typeof game.onControlRelease === "function") {
+      changed = game.onControlRelease(action) || changed;
+    }
+    if (typeof game.onControlUp === "function") {
+      changed = game.onControlUp(action) || changed;
+    }
     if (changed) {
       onControlApplied?.();
     }
     return changed;
+  }
+
+  function resolveActionButton(eventTarget) {
+    if (!(eventTarget instanceof Element)) {
+      return null;
+    }
+
+    return eventTarget.closest("button[data-action]");
   }
 
   function renderTouchControls(schemeName) {
@@ -238,7 +250,7 @@ export function createInputManager(options) {
   }
 
   function stopTouchHold() {
-    const releasedAction = touchHoldAction;
+    const action = touchHoldAction;
 
     if (touchHoldTimer) {
       clearTimeout(touchHoldTimer);
@@ -247,13 +259,21 @@ export function createInputManager(options) {
 
     touchHoldAction = null;
 
-    if (releasedAction) {
-      releaseControl(releasedAction);
+    if (action) {
+      releaseControl(action);
     }
   }
 
   function startTouchHold(action) {
-    stopTouchHold();
+    if (touchHoldTimer) {
+      clearTimeout(touchHoldTimer);
+      touchHoldTimer = null;
+    }
+
+    if (touchHoldAction && touchHoldAction !== action) {
+      releaseControl(touchHoldAction);
+    }
+
     touchHoldAction = action;
     triggerControl(action);
 
@@ -307,55 +327,82 @@ export function createInputManager(options) {
       return;
     }
 
+    function armClickSuppression() {
+      suppressButtonClick = true;
+      if (suppressButtonClickTimer) {
+        clearTimeout(suppressButtonClickTimer);
+      }
+      suppressButtonClickTimer = setTimeout(() => {
+        suppressButtonClick = false;
+        suppressButtonClickTimer = null;
+      }, 120);
+    }
+
     touchControlsEl.addEventListener("pointerdown", (event) => {
-      if (!getActiveGame() || event.pointerType === "mouse") {
+      if (!getActiveGame()) {
         return;
       }
 
-      const target = event.target;
-      if (!(target instanceof HTMLButtonElement)) {
+      const button = resolveActionButton(event.target);
+      if (!button) {
         return;
       }
 
-      const action = target.dataset.action;
+      const action = button.dataset.action;
       if (!action) {
         return;
       }
 
       event.preventDefault();
+      event.stopPropagation();
+
+      try {
+        button.setPointerCapture(event.pointerId);
+      } catch {
+        // Some browsers reject capture on non-primary pointers.
+      }
+
+      armClickSuppression();
       startTouchHold(action);
     }, { passive: false });
 
     touchControlsEl.addEventListener("pointerup", (event) => {
-      if (event.pointerType !== "mouse") {
-        event.preventDefault();
-      }
+      event.preventDefault();
       stopTouchHold();
     }, { passive: false });
 
     touchControlsEl.addEventListener("pointercancel", () => {
       stopTouchHold();
+      suppressButtonClick = false;
     });
 
-    touchControlsEl.addEventListener("pointerleave", () => {
+    touchControlsEl.addEventListener("lostpointercapture", () => {
       stopTouchHold();
     });
 
+    // Fallback for keyboard / accessibility activation without pointer events.
     touchControlsEl.addEventListener("click", (event) => {
       if (!getActiveGame()) {
         return;
       }
 
-      const target = event.target;
-      if (!(target instanceof HTMLButtonElement)) {
+      if (suppressButtonClick) {
+        suppressButtonClick = false;
+        event.preventDefault();
         return;
       }
 
-      const action = target.dataset.action;
+      const button = resolveActionButton(event.target);
+      if (!button) {
+        return;
+      }
+
+      const action = button.dataset.action;
       if (!action) {
         return;
       }
 
+      event.preventDefault();
       triggerControl(action);
     });
   }
@@ -363,6 +410,15 @@ export function createInputManager(options) {
   function bindCanvasGestures() {
     if (!canvas) {
       return;
+    }
+
+    function directionFromDelta(dx, dy) {
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+      if (absDx >= absDy) {
+        return dx > 0 ? "RIGHT" : "LEFT";
+      }
+      return dy > 0 ? "DOWN" : "UP";
     }
 
     canvas.addEventListener("touchstart", (event) => {
@@ -376,6 +432,35 @@ export function createInputManager(options) {
       swipeTouchStartY = touch.clientY;
       swipeTouchId = touch.identifier;
       swipeTouchStartTime = Date.now();
+    }, { passive: false });
+
+    canvas.addEventListener("touchmove", (event) => {
+      if (
+        !getActiveGame()
+        || !shouldUseGestures(getControlMode(), isTouchDevice)
+        || swipeTouchId == null
+      ) {
+        return;
+      }
+
+      const touch = Array.from(event.touches).find((t) => t.identifier === swipeTouchId);
+      if (!touch) {
+        return;
+      }
+
+      event.preventDefault();
+
+      const dx = touch.clientX - swipeTouchStartX;
+      const dy = touch.clientY - swipeTouchStartY;
+      const swipeMin = getSwipeMinDistance();
+      if (Math.abs(dx) < swipeMin && Math.abs(dy) < swipeMin) {
+        return;
+      }
+
+      const action = directionFromDelta(dx, dy);
+      if (touchHoldAction !== action) {
+        startTouchHold(action);
+      }
     }, { passive: false });
 
     canvas.addEventListener("touchend", (event) => {
@@ -401,6 +486,13 @@ export function createInputManager(options) {
       const elapsedMs = Date.now() - swipeTouchStartTime;
       const swipeMin = getSwipeMinDistance();
       const longPressMs = getLongPressMs();
+      const wasHolding = Boolean(touchHoldAction);
+
+      if (wasHolding) {
+        stopTouchHold();
+        swipeTouchStartTime = 0;
+        return;
+      }
 
       if (absDx < swipeMin && absDy < swipeMin) {
         handleCanvasTap(touch.clientX, touch.clientY, elapsedMs >= longPressMs);
@@ -408,14 +500,13 @@ export function createInputManager(options) {
         return;
       }
 
-      let action;
-      if (absDx >= absDy) {
-        action = dx > 0 ? "RIGHT" : "LEFT";
-      } else {
-        action = dy > 0 ? "DOWN" : "UP";
-      }
-
+      const action = directionFromDelta(dx, dy);
       triggerControl(action);
+      // One-shot swipe: briefly hold then release so run/paddle games still move.
+      const releaseAction = action;
+      setTimeout(() => {
+        releaseControl(releaseAction);
+      }, GESTURE_HOLD_MS);
       swipeTouchStartTime = 0;
     }, { passive: false });
 
@@ -429,6 +520,11 @@ export function createInputManager(options) {
   function bindGlobalTouchScrollLock() {
     document.addEventListener("touchmove", (event) => {
       if (!getActiveGame()) {
+        return;
+      }
+
+      const target = event.target;
+      if (target instanceof Element && target.closest("#touch-controls, .controls-overlay, .auth-gate, .tabletop-overlay")) {
         return;
       }
 

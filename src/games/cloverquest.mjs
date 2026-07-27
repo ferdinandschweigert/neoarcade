@@ -146,6 +146,7 @@ export function createCloverQuestGame(ctx) {
     onKeyDown(key) { const k = String(key).toLowerCase(); if (["arrowleft", "a"].includes(k)) { state.held.add("LEFT"); startRun(); return true; } if (["arrowright", "d"].includes(k)) { state.held.add("RIGHT"); startRun(); return true; } if (["arrowup", "w", "enter"].includes(k)) return jump(); return false; },
     onKeyUp(key) { const k = String(key).toLowerCase(); if (["arrowleft", "a"].includes(k)) { state.held.delete("LEFT"); return true; } if (["arrowright", "d"].includes(k)) { state.held.delete("RIGHT"); return true; } return false; },
     onControl(action) { if (action === "LEFT" || action === "RIGHT") { state.held.add(action); startRun(); return true; } return action === "UP" || action === "SELECT" ? jump() : false; },
+    onControlRelease(action) { if (action === "LEFT" || action === "RIGHT") { state.held.delete(action); return true; } return false; },
     togglePause() { if (state.status === "ready") startRun(); else if (state.status !== "complete") state.status = state.status === "paused" ? "running" : "paused"; },
     restart() { state = createState(); }, getTickMs() { return 16; },
     getControlHint() { return "Left/Right: run · Up/Select: jump · hit blocks from below · find the rainbow gate."; },
