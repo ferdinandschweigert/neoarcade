@@ -272,7 +272,7 @@ body:not([data-panel="game"]) .app-shell::after {
 
 .app-tabs {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.55rem;
   margin: 0.15rem 0 0;
   padding: 0.2rem 0.25rem 0;
@@ -293,35 +293,13 @@ body:not([data-panel="game"]) .app-shell::after {
 }
 
 .app-tabs .app-tab {
-  display: grid;
-  justify-items: center;
-  align-content: center;
-  gap: 0.18rem;
-  min-height: 3.15rem;
-  padding: 0.4rem 0.3rem 0.45rem;
+  min-height: 2.85rem;
+  padding: 0.55rem 0.4rem;
   border-radius: 0.85rem;
-  font-size: 0.58rem;
+  font-size: 0.68rem;
   font-weight: 950;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-}
-
-.app-tab-icon {
-  display: grid;
-  place-items: center;
-  width: 1.35rem;
-  height: 1.35rem;
-  line-height: 0;
-}
-
-.app-tab-icon svg {
-  display: block;
-  width: 1.15rem;
-  height: 1.15rem;
-}
-
-.app-tab-label {
-  line-height: 1;
 }
 
 .app-tab:hover,
@@ -342,7 +320,6 @@ body:not([data-panel="game"]) .app-shell::after {
 .app-tab:nth-child(1) { box-shadow: 0 4px 0 var(--cyan-dark); }
 .app-tab:nth-child(2) { box-shadow: 0 4px 0 var(--burgundy-dark); }
 .app-tab:nth-child(3) { box-shadow: 0 4px 0 var(--yellow-dark); }
-.app-tab:nth-child(4) { box-shadow: 0 4px 0 #6446b5; }
 
 .app-tab:nth-child(1).is-active {
   border-color: var(--cyan-dark);
@@ -361,12 +338,6 @@ body:not([data-panel="game"]) .app-shell::after {
   background: var(--yellow);
   box-shadow: 0 4px 0 var(--yellow-dark);
   color: var(--navy-dark);
-}
-
-.app-tab:nth-child(4).is-active {
-  border-color: #6446b5;
-  background: var(--violet);
-  box-shadow: 0 4px 0 #6446b5;
 }
 
 .app {
@@ -1312,16 +1283,9 @@ body.is-touch .touch-controls:not(.is-empty) {
   }
 
   .app-tabs .app-tab {
-    min-height: 2.85rem;
+    min-height: 2.45rem;
     border-radius: 0.7rem;
-    font-size: 0.48rem;
-    gap: 0.12rem;
-  }
-
-  .app-tab-icon,
-  .app-tab-icon svg {
-    width: 1.05rem;
-    height: 1.05rem;
+    font-size: 0.55rem;
   }
 
   .app {
