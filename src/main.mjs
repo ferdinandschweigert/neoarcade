@@ -22,7 +22,7 @@ const PROFILE_SCORE_STORAGE_KEY = STORAGE_KEYS.PROFILE_SCORES;
 const ACTIVE_PROFILE_STORAGE_KEY = STORAGE_KEYS.ACTIVE_PROFILE;
 const DIFFICULTY_OPTIONS = new Set(["easy", "normal", "hard"]);
 const CONTROL_MODE_OPTIONS = new Set(["auto", "both", "buttons", "gestures"]);
-const LOWER_IS_BETTER_GAMES = new Set(["memory", "mines"]);
+const LOWER_IS_BETTER_GAMES = new Set(["memory", "mines", "quickdraw", "hanoi", "lights"]);
 const BEST_TOKEN_PATTERN = /(Best(?:\s+safe)?\s*:?\s*)(-|\d+(?:\.\d+)?(?:ms)?)/i;
 
 const DISPLAY_TITLES = {
@@ -38,6 +38,12 @@ const DISPLAY_TITLES = {
   grannyrun: "Granny Rooftop",
   cloverquest: "Clover Quest",
   afterhours: "After Hours Arcade",
+  quickdraw: "Quick Draw",
+  mastermind: "Mastermind Code",
+  sokoban: "Sokoban Crates",
+  hanoi: "Tower of Hanoi",
+  lights: "Lights Out",
+  sequence: "Sequence Echo",
 };
 
 /** Dynamic loaders — game modules (and their sprite atlases) load on first play. */
@@ -57,6 +63,12 @@ const GAME_LOADERS = {
   grannyrun: () => import("./games/grannyrun.mjs").then((m) => m.createGrannyRunGame),
   cloverquest: () => import("./games/cloverquest.mjs").then((m) => m.createCloverQuestGame),
   afterhours: () => import("./games/afterhours.mjs").then((m) => m.createAfterHoursArcadeGame),
+  quickdraw: () => import("./games/quickdraw.mjs").then((m) => m.createQuickDrawGame),
+  mastermind: () => import("./games/mastermind.mjs").then((m) => m.createMastermindGame),
+  sokoban: () => import("./games/sokoban.mjs").then((m) => m.createSokobanGame),
+  hanoi: () => import("./games/hanoi.mjs").then((m) => m.createHanoiGame),
+  lights: () => import("./games/lights.mjs").then((m) => m.createLightsOutGame),
+  sequence: () => import("./games/sequence.mjs").then((m) => m.createSequenceEchoGame),
 };
 
 const PLAYABLE_GAME_IDS = CLASSIC_GAME_IDS.filter((id) => GAME_LOADERS[id]);
