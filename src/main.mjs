@@ -244,6 +244,11 @@ for (const gameButton of gameButtons) {
     if (GAME_LOADERS[gameId]) {
       lastFocusedGameCard = gameButton;
       void startGame(gameId);
+      return;
+    }
+
+    if (gameId) {
+      setAppStatus("This game is still loading. Hard-refresh the page (Ctrl/Cmd+Shift+R).", true, 5000);
     }
   });
 }
