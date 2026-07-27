@@ -1237,7 +1237,7 @@ body.is-touch .touch-controls:not(.is-empty) {
     padding:
       max(0.85rem, var(--safe-top))
       max(0.85rem, var(--safe-right))
-      max(2.2rem, var(--safe-bottom))
+      max(1.1rem, var(--safe-bottom))
       max(0.85rem, var(--safe-left));
     border-radius: 1.8rem 1.8rem 2.8rem 1.8rem;
   }
