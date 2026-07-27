@@ -1,10 +1,10 @@
 # NeoArcade
 
-Thirteen classic browser games for short breaks between work sessions — with friend sign-in and rankings on Vercel.
+Twenty-one classic browser games for short breaks between work sessions — with friend sign-in and rankings on Vercel.
 
 Play at **[neoarcade.vercel.app](https://neoarcade.vercel.app)**.
 
-## Games (15 classics)
+## Games (21 classics)
 
 - Snake
 - Tetris (Blockfall engine)
@@ -21,6 +21,12 @@ Play at **[neoarcade.vercel.app](https://neoarcade.vercel.app)**.
 - Granny Rooftop
 - Clover Quest
 - After Hours Arcade
+- Quick Draw
+- Mastermind Code
+- Sokoban Crates
+- Tower of Hanoi
+- Lights Out
+- Sequence Echo
 
 ## Features
 

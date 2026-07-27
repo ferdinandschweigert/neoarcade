@@ -14,6 +14,12 @@ export const CLASSIC_GAME_IDS = [
   "grannyrun",
   "cloverquest",
   "afterhours",
+  "quickdraw",
+  "mastermind",
+  "sokoban",
+  "hanoi",
+  "lights",
+  "sequence",
 ];
 
 export const GAME_LABELS = {
@@ -32,6 +38,12 @@ export const GAME_LABELS = {
   grannyrun: "Granny Rooftop",
   cloverquest: "Clover Quest",
   afterhours: "After Hours Arcade",
+  quickdraw: "Quick Draw",
+  mastermind: "Mastermind Code",
+  sokoban: "Sokoban Crates",
+  hanoi: "Tower of Hanoi",
+  lights: "Lights Out",
+  sequence: "Sequence Echo",
 };
 
 const MODAL_VIEWS = new Set(["rankings", "stats", "settings"]);

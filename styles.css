@@ -547,6 +547,12 @@ body:not([data-panel="game"]) .app::after {
 .game-card[data-game="grannyrun"] { --game-icon: url("./assets/game-icons/grannyrun.svg"); }
 .game-card[data-game="cloverquest"] { --game-icon: url("./assets/game-icons/cloverquest.svg"); }
 .game-card[data-game="afterhours"] { --game-icon: url("./assets/game-icons/afterhours.svg"); }
+.game-card[data-game="quickdraw"] { --game-icon: url("./assets/game-icons/quickdraw.svg"); }
+.game-card[data-game="mastermind"] { --game-icon: url("./assets/game-icons/mastermind.svg"); }
+.game-card[data-game="sokoban"] { --game-icon: url("./assets/game-icons/sokoban.svg"); }
+.game-card[data-game="hanoi"] { --game-icon: url("./assets/game-icons/hanoi.svg"); }
+.game-card[data-game="lights"] { --game-icon: url("./assets/game-icons/lights.svg"); }
+.game-card[data-game="sequence"] { --game-icon: url("./assets/game-icons/sequence.svg"); }
 
 .game-card-title {
   font-size: 0.82rem;

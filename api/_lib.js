@@ -19,9 +19,15 @@ const CLASSIC_GAME_IDS = [
   "grannyrun",
   "cloverquest",
   "afterhours",
+  "quickdraw",
+  "mastermind",
+  "sokoban",
+  "hanoi",
+  "lights",
+  "sequence",
 ];
 
-const LOWER_IS_BETTER_GAMES = new Set(["memory", "mines"]);
+const LOWER_IS_BETTER_GAMES = new Set(["memory", "mines", "quickdraw", "hanoi", "lights"]);
 
 const GAME_LABELS = {
   snake: "Snake",
@@ -39,6 +45,12 @@ const GAME_LABELS = {
   grannyrun: "Granny Rooftop",
   cloverquest: "Clover Quest",
   afterhours: "After Hours Arcade",
+  quickdraw: "Quick Draw",
+  mastermind: "Mastermind Code",
+  sokoban: "Sokoban Crates",
+  hanoi: "Tower of Hanoi",
+  lights: "Lights Out",
+  sequence: "Sequence Echo",
 };
 
 function keys() {

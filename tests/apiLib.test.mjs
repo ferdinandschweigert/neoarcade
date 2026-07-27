@@ -35,7 +35,23 @@ test("isBetterScore respects game direction", () => {
   assert.equal(isBetterScore("snake", null, 5), true);
 });
 
-test("classic game list has fifteen entries", () => {
-  assert.equal(CLASSIC_GAME_IDS.length, 15);
+test("classic game list has twenty-one entries", () => {
+  assert.equal(CLASSIC_GAME_IDS.length, 21);
   assert.deepEqual(FRONTEND_GAME_IDS, CLASSIC_GAME_IDS);
+});
+
+test("focus pack games are allowed score targets", () => {
+  assert.equal(sanitizeGameId("quickdraw"), "quickdraw");
+  assert.equal(sanitizeGameId("mastermind"), "mastermind");
+  assert.equal(sanitizeGameId("sokoban"), "sokoban");
+  assert.equal(sanitizeGameId("hanoi"), "hanoi");
+  assert.equal(sanitizeGameId("lights"), "lights");
+  assert.equal(sanitizeGameId("sequence"), "sequence");
+});
+
+test("lower-is-better includes focus puzzle games", () => {
+  assert.equal(isBetterScore("lights", 20, 12), true);
+  assert.equal(isBetterScore("hanoi", 40, 30), true);
+  assert.equal(isBetterScore("quickdraw", 300, 180), true);
+  assert.equal(isBetterScore("sequence", 4, 7), true);
 });
