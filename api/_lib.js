@@ -29,6 +29,17 @@ const CLASSIC_GAME_IDS = [
 
 const LOWER_IS_BETTER_GAMES = new Set(["memory", "mines", "quickdraw", "hanoi", "lights"]);
 
+const TABLETOP_GAME_IDS = [
+  "doppelkopf",
+  "wizard",
+  "skyjo",
+  "phase10",
+  "romme",
+  "qwixx",
+];
+
+const TABLETOP_LOWER_IS_BETTER = new Set(["skyjo", "phase10"]);
+
 const GAME_LABELS = {
   snake: "Snake",
   blockfall: "Tetris",
@@ -64,6 +75,11 @@ function keys() {
     usersIndex: `${KEY_PREFIX}users:index`,
     userMeta: (userId) => `${KEY_PREFIX}user:meta:${userId}`,
     nextUserId: `${KEY_PREFIX}seq:userId`,
+    circle: (userId) => `${KEY_PREFIX}circle:${userId}`,
+    circleCode: (code) => `${KEY_PREFIX}circle:code:${code}`,
+    ttStats: (ownerId, playerId, gameId) =>
+      `${KEY_PREFIX}tt:stats:${ownerId}:${playerId}:${gameId}`,
+    ttBoard: (ownerId, gameId) => `${KEY_PREFIX}tt:board:${ownerId}:${gameId}`,
   };
 }
 
@@ -83,6 +99,27 @@ function sanitizeDisplayName(raw, fallback = "Player") {
 function sanitizeGameId(raw) {
   const gameId = String(raw || "").trim();
   return CLASSIC_GAME_IDS.includes(gameId) ? gameId : null;
+}
+
+function sanitizeTabletopGameId(raw) {
+  const gameId = String(raw || "").trim();
+  return TABLETOP_GAME_IDS.includes(gameId) ? gameId : null;
+}
+
+function sanitizeJoinCode(raw) {
+  return String(raw || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 12);
+}
+
+function createJoinCode() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "NEO";
+  for (let i = 0; i < 4; i += 1) {
+    code += alphabet[crypto.randomInt(0, alphabet.length)];
+  }
+  return code;
 }
 
 function parseBody(body) {
@@ -183,6 +220,8 @@ function setCors(res) {
 module.exports = {
   CLASSIC_GAME_IDS,
   LOWER_IS_BETTER_GAMES,
+  TABLETOP_GAME_IDS,
+  TABLETOP_LOWER_IS_BETTER,
   GAME_LABELS,
   KEY_PREFIX,
   SESSION_TTL_SECONDS,
@@ -190,6 +229,9 @@ module.exports = {
   sanitizeUsername,
   sanitizeDisplayName,
   sanitizeGameId,
+  sanitizeTabletopGameId,
+  sanitizeJoinCode,
+  createJoinCode,
   parseBody,
   jsonResponse,
   getBearerToken,

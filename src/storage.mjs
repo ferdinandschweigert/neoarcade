@@ -14,6 +14,7 @@ const STORAGE_KEYS = {
   AUTH_TOKEN: "neoArcade.authToken.v1",
   GUEST_MODE: "neoArcade.guestMode.v1",
   TABLETOP_SESSIONS: "neoArcade.tabletop.v1",
+  TABLETOP_FRIENDS: "neoArcade.tabletopFriends.v1",
   GRANNY_PROGRESS: "neoArcade.grannyProgress.v1",
 };
 

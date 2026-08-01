@@ -6,6 +6,27 @@ import {
   defaultPlayerNames,
 } from "./games.mjs";
 import {
+  captureRoundDraftFromForm,
+  draftFieldValue,
+  draftCheckValue,
+} from "./draft.mjs";
+import {
+  loadFriendsStore,
+  saveFriendsStore,
+  promotePlayers,
+  normalizePlayerName,
+  applySessionToStats,
+  buildRankings,
+  fetchCircle,
+  mergeRemoteCircle,
+  apiPromotePlayers,
+  apiJoinByCode,
+  apiRemovePlayer,
+  apiSubmitSession,
+  apiGetRankings,
+  nameKey,
+} from "./friends.mjs";
+import {
   safeStorageGetJson,
   safeStorageSetJson,
   STORAGE_KEYS,
@@ -19,12 +40,13 @@ export function createTabletopManager(config = {}) {
   const rootEl = config.rootEl;
   const openButtonEl = config.openButtonEl;
   const closeButtonEl = config.closeButtonEl;
+  const isAuthenticated = config.isAuthenticated || (() => false);
 
-  /** @type {"picker" | "rules" | "setup" | "session" | "history" | "history-detail"} */
+  /** @type {"picker" | "rules" | "setup" | "session" | "history" | "history-detail" | "players" | "rankings" | "promote" | "join"} */
   let view = "picker";
   /** @type {string | null} */
   let rulesGameId = null;
-  /** @type {"picker" | "setup" | "session" | "history" | "history-detail"} */
+  /** @type {string} */
   let rulesReturnView = "picker";
   /** @type {object | null} */
   let activeSession = null;
@@ -34,7 +56,14 @@ export function createTabletopManager(config = {}) {
   let viewedHistoryIndex = null;
   let setupGameId = null;
   let setupNames = [];
+  /** @type {(string|null)[]} */
+  let setupProfileIds = [];
   let message = "";
+  /** @type {object | null} */
+  let friendsStore = null;
+  let rankingsGameFilter = "";
+  /** @type {object | null} */
+  let pendingPromoteSession = null;
 
   function init() {
     if (!rootEl || !openButtonEl) {
@@ -66,9 +95,11 @@ export function createTabletopManager(config = {}) {
     rootEl.addEventListener("click", onRootClick);
     rootEl.addEventListener("submit", onRootSubmit);
     rootEl.addEventListener("change", onRootChange);
+    rootEl.addEventListener("input", onRootInput);
   }
 
-  function open() {
+  async function open() {
+    friendsStore = loadFriendsStore();
     const stored = loadStore();
     if (stored.active) {
       activeSession = stored.active;
@@ -79,13 +110,18 @@ export function createTabletopManager(config = {}) {
     }
     viewedSession = null;
     viewedHistoryIndex = null;
+    pendingPromoteSession = null;
     message = "";
     rootEl.classList.remove("hidden");
     document.body.classList.add("tabletop-open");
     render();
+    if (isAuthenticated()) {
+      void syncFriendsFromCloud();
+    }
   }
 
   function close() {
+    snapshotDraftFromDom();
     if (activeSession && activeSession.status === "active") {
       persistActive(activeSession);
     }
@@ -124,11 +160,92 @@ export function createTabletopManager(config = {}) {
       status: "finished",
       finishedAt: new Date().toISOString(),
     };
+    delete finished.draftRound;
     store.history = [finished, ...(store.history || [])].slice(0, MAX_HISTORY);
     store.active = null;
     saveStore(store);
     activeSession = null;
     return finished;
+  }
+
+  function getFriends() {
+    if (!friendsStore) {
+      friendsStore = loadFriendsStore();
+    }
+    return friendsStore;
+  }
+
+  function persistFriends() {
+    if (friendsStore) {
+      saveFriendsStore(friendsStore);
+    }
+  }
+
+  async function syncFriendsFromCloud() {
+    try {
+      const remote = await fetchCircle();
+      if (!remote) {
+        return;
+      }
+      friendsStore = mergeRemoteCircle(getFriends(), remote);
+      persistFriends();
+      if (view === "players" || view === "rankings" || view === "setup") {
+        render();
+      }
+    } catch {
+      // offline / API unavailable — keep local roster
+    }
+  }
+
+  async function refreshRankingsFromCloud() {
+    if (!isAuthenticated()) {
+      return;
+    }
+    try {
+      const payload = await apiGetRankings({
+        gameId: rankingsGameFilter || null,
+      });
+      if (!payload || view !== "rankings") {
+        return;
+      }
+      const friends = getFriends();
+      if (payload.stats) {
+        friends.localStats = payload.stats;
+      }
+      if (payload.players) {
+        friends.players = payload.players;
+      }
+      persistFriends();
+      render();
+    } catch {
+      // keep local rankings
+    }
+  }
+
+  function snapshotDraftFromDom() {
+    if (!activeSession || view !== "session" || !rootEl) {
+      return;
+    }
+    const form = rootEl.querySelector('form[data-tt-form="round"]');
+    const game = getTabletopGame(activeSession.gameId);
+    if (!form || !game) {
+      return;
+    }
+    const draft = captureRoundDraftFromForm(
+      form,
+      game.scoreMode,
+      activeSession.players.length,
+    );
+    if (draft) {
+      activeSession.draftRound = draft;
+      persistActive(activeSession);
+    }
+  }
+
+  function clearDraft() {
+    if (activeSession) {
+      delete activeSession.draftRound;
+    }
   }
 
   function onRootClick(event) {
@@ -163,6 +280,7 @@ export function createTabletopManager(config = {}) {
         next = Math.min(max, next);
       }
       setNumericFieldValue(input, next);
+      snapshotDraftFromDom();
       return;
     }
     if (action === "set-value") {
@@ -177,6 +295,7 @@ export function createTabletopManager(config = {}) {
         return;
       }
       setNumericFieldValue(input, value);
+      snapshotDraftFromDom();
       return;
     }
     if (action === "close") {
@@ -184,6 +303,7 @@ export function createTabletopManager(config = {}) {
       return;
     }
     if (action === "picker") {
+      snapshotDraftFromDom();
       view = "picker";
       message = "";
       render();
@@ -195,6 +315,86 @@ export function createTabletopManager(config = {}) {
       view = "history";
       message = "";
       render();
+      return;
+    }
+    if (action === "players") {
+      view = "players";
+      message = "";
+      render();
+      void syncFriendsFromCloud();
+      return;
+    }
+    if (action === "rankings") {
+      view = "rankings";
+      message = "";
+      render();
+      void refreshRankingsFromCloud();
+      return;
+    }
+    if (action === "join") {
+      view = "join";
+      message = "";
+      render();
+      return;
+    }
+    if (action === "copy-code") {
+      const code = getFriends().joinCode;
+      if (code && navigator.clipboard?.writeText) {
+        void navigator.clipboard.writeText(formatJoinCode(code)).then(() => {
+          message = "Code kopiert.";
+          render();
+        });
+      }
+      return;
+    }
+    if (action === "use-player") {
+      const profileId = button.dataset.ttPlayer;
+      const friends = getFriends();
+      const player = friends.players.find((p) => p.id === profileId);
+      if (!player || view !== "setup") {
+        return;
+      }
+      const emptyIndex = setupNames.findIndex(
+        (name, i) =>
+          !normalizePlayerName(name) ||
+          /^Spieler\s+\d+$/i.test(normalizePlayerName(name)) ||
+          !setupProfileIds[i],
+      );
+      const index =
+        emptyIndex >= 0
+          ? emptyIndex
+          : Math.min(setupNames.length - 1, setupNames.length);
+      if (index < 0) {
+        return;
+      }
+      if (setupProfileIds.includes(profileId)) {
+        message = `${player.name} ist schon ausgewählt.`;
+        render();
+        return;
+      }
+      setupNames[index] = player.name;
+      setupProfileIds[index] = player.id;
+      message = "";
+      render();
+      return;
+    }
+    if (action === "remember-setup") {
+      rememberSetupNames();
+      return;
+    }
+    if (action === "remove-player") {
+      const profileId = button.dataset.ttPlayer;
+      void removePermanentPlayer(profileId);
+      return;
+    }
+    if (action === "set-rank-filter") {
+      rankingsGameFilter = button.dataset.ttGame || "";
+      render();
+      void refreshRankingsFromCloud();
+      return;
+    }
+    if (action === "skip-promote") {
+      void finalizePromote(false);
       return;
     }
     if (action === "view-history") {
@@ -236,6 +436,7 @@ export function createTabletopManager(config = {}) {
       return;
     }
     if (action === "rules" && gameId) {
+      snapshotDraftFromDom();
       rulesGameId = gameId;
       rulesReturnView =
         view === "session"
@@ -246,7 +447,9 @@ export function createTabletopManager(config = {}) {
               ? "history-detail"
               : view === "history"
                 ? "history"
-                : "picker";
+                : view === "players"
+                  ? "players"
+                  : "picker";
       view = "rules";
       render();
       return;
@@ -264,6 +467,7 @@ export function createTabletopManager(config = {}) {
       if (activeSession.rounds.length > 0) {
         activeSession.rounds.pop();
         recomputeSession(activeSession);
+        clearDraft();
         persistActive(activeSession);
         message = "Letzte Runde entfernt.";
         render();
@@ -271,15 +475,29 @@ export function createTabletopManager(config = {}) {
       return;
     }
     if (action === "finish" && activeSession) {
+      snapshotDraftFromDom();
+      clearDraft();
+      linkSessionToProfiles(activeSession);
       const finished = pushHistory(activeSession);
+      pendingPromoteSession = finished;
       viewedSession = structuredClone(finished);
       viewedHistoryIndex = 0;
-      message = "Partie gespeichert.";
-      view = "history-detail";
+      const friends = getFriends();
+      const newNames = finished.players.filter(
+        (p) => !friends.players.some((fp) => nameKey(fp.name) === nameKey(p.name)),
+      );
+      if (newNames.length > 0) {
+        view = "promote";
+        message = "Partie gespeichert — Spieler für später merken?";
+      } else {
+        void finalizePromote(true);
+        return;
+      }
       render();
       return;
     }
     if (action === "discard" && activeSession) {
+      clearDraft();
       clearActive();
       message = "Partie verworfen.";
       view = "picker";
@@ -330,6 +548,24 @@ export function createTabletopManager(config = {}) {
     if (target.dataset.ttSetupName != null) {
       const index = Number(target.dataset.ttSetupName);
       setupNames[index] = target.value;
+      setupProfileIds[index] = null;
+    }
+    if (target.closest('form[data-tt-form="round"]')) {
+      snapshotDraftFromDom();
+    }
+  }
+
+  function onRootInput(event) {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) {
+      return;
+    }
+    if (target.name === "player-count") {
+      handlePlayerCountInput(target);
+      return;
+    }
+    if (target.closest('form[data-tt-form="round"]')) {
+      snapshotDraftFromDom();
     }
   }
 
@@ -350,12 +586,20 @@ export function createTabletopManager(config = {}) {
       let count = game.players.fixed || Number(countInput?.value || setupNames.length);
       count = clamp(count, game.players.min, game.players.max);
       const names = [];
+      const profileIds = [];
       for (let i = 0; i < count; i += 1) {
         const input = form.querySelector(`[name="player-${i}"]`);
         const value = (input?.value || setupNames[i] || `Spieler ${i + 1}`).trim();
         names.push(value || `Spieler ${i + 1}`);
+        profileIds.push(setupProfileIds[i] || null);
       }
-      activeSession = createSession(game, names);
+      activeSession = createSession(game, names, profileIds);
+      linkSessionToProfiles(activeSession);
+      const friends = getFriends();
+      friends.lastGroupIds = activeSession.players
+        .map((p) => p.profileId)
+        .filter(Boolean);
+      persistFriends();
       persistActive(activeSession);
       view = "session";
       message = "Partie gestartet.";
@@ -372,13 +616,176 @@ export function createTabletopManager(config = {}) {
         const round = readRoundFromForm(form, game, activeSession);
         activeSession.rounds.push(round);
         recomputeSession(activeSession);
+        clearDraft();
         persistActive(activeSession);
         message = `Runde ${activeSession.rounds.length} gespeichert.`;
         render();
       } catch (error) {
+        snapshotDraftFromDom();
         message = error.message || "Runde ungültig.";
         render();
       }
+      return;
+    }
+
+    if (formAction === "promote") {
+      void finalizePromote(true, form);
+      return;
+    }
+
+    if (formAction === "join") {
+      void handleJoinSubmit(form);
+    }
+  }
+
+  function rememberSetupNames() {
+    const names = setupNames.map((n) => normalizePlayerName(n)).filter(Boolean);
+    if (!names.length) {
+      message = "Keine Namen zum Speichern.";
+      render();
+      return;
+    }
+    const friends = getFriends();
+    const result = promotePlayers(friends.players, names);
+    friends.players = result.players;
+    setupProfileIds = result.ids;
+    persistFriends();
+    message = "Spieler gemerkt.";
+    render();
+    if (isAuthenticated()) {
+      void apiPromotePlayers(names)
+        .then((payload) => {
+          friendsStore = mergeRemoteCircle(getFriends(), payload);
+          persistFriends();
+        })
+        .catch(() => {});
+    }
+  }
+
+  async function removePermanentPlayer(profileId) {
+    const friends = getFriends();
+    friends.players = friends.players.filter((p) => p.id !== profileId);
+    friends.lastGroupIds = friends.lastGroupIds.filter((id) => id !== profileId);
+    if (friends.localStats?.[profileId]) {
+      delete friends.localStats[profileId];
+    }
+    persistFriends();
+    message = "Spieler entfernt.";
+    render();
+    if (isAuthenticated()) {
+      try {
+        const payload = await apiRemovePlayer(profileId);
+        friendsStore = mergeRemoteCircle(getFriends(), payload);
+        persistFriends();
+        render();
+      } catch {
+        // keep local removal
+      }
+    }
+  }
+
+  async function finalizePromote(saveSelected, form = null) {
+    const session = pendingPromoteSession || viewedSession;
+    if (!session) {
+      view = "history-detail";
+      render();
+      return;
+    }
+
+    const friends = getFriends();
+    let namesToSave = [];
+    if (saveSelected && form) {
+      namesToSave = session.players
+        .map((player, index) => {
+          const box = form.querySelector(`[name="promote-${index}"]`);
+          return box instanceof HTMLInputElement && box.checked ? player.name : null;
+        })
+        .filter(Boolean);
+    } else if (saveSelected) {
+      namesToSave = session.players
+        .filter(
+          (p) => !friends.players.some((fp) => nameKey(fp.name) === nameKey(p.name)),
+        )
+        .map((p) => p.name);
+    }
+
+    if (namesToSave.length) {
+      const result = promotePlayers(friends.players, namesToSave);
+      friends.players = result.players;
+      persistFriends();
+      if (isAuthenticated()) {
+        try {
+          const payload = await apiPromotePlayers(namesToSave);
+          friendsStore = mergeRemoteCircle(getFriends(), payload);
+          persistFriends();
+        } catch {
+          // local keep
+        }
+      }
+    }
+
+    linkSessionToProfiles(session);
+    friends.lastGroupIds = session.players.map((p) => p.profileId).filter(Boolean);
+    const game = getTabletopGame(session.gameId);
+    friends.localStats = applySessionToStats(friends.localStats, session, game);
+    persistFriends();
+
+    // Keep local history in sync with linked profile ids.
+    const store = loadStore();
+    if (store.history?.[0]?.id === session.id) {
+      store.history[0] = {
+        ...store.history[0],
+        players: session.players.map((p) => ({ ...p })),
+      };
+      saveStore(store);
+    }
+
+    if (isAuthenticated() && session.players.some((p) => p.profileId)) {
+      try {
+        const payload = await apiSubmitSession(session);
+        if (payload?.stats) {
+          friends.localStats = payload.stats;
+          if (payload.players) {
+            friends.players = payload.players;
+          }
+          persistFriends();
+        }
+      } catch {
+        // rankings stay local
+      }
+    }
+
+    pendingPromoteSession = null;
+    viewedSession = structuredClone(session);
+    viewedHistoryIndex = 0;
+    view = "history-detail";
+    message = namesToSave.length
+      ? "Partie und Spieler gespeichert."
+      : "Partie gespeichert.";
+    render();
+  }
+
+  async function handleJoinSubmit(form) {
+    const code = String(form.querySelector("[name=join-code]")?.value || "");
+    const name = String(form.querySelector("[name=join-name]")?.value || "");
+    try {
+      const payload = await apiJoinByCode({ joinCode: code, name });
+      const friends = getFriends();
+      const result = promotePlayers(friends.players, [name]);
+      friends.players = result.players;
+      if (payload?.joinCode) {
+        friends.joinCode = payload.joinCode;
+      }
+      if (payload?.ownerId) {
+        friends.ownerId = payload.ownerId;
+      }
+      persistFriends();
+      message = `${normalizePlayerName(name)} ist dabei.`;
+      view = "players";
+      render();
+    } catch (error) {
+      message = error.message || "Beitritt fehlgeschlagen.";
+      render();
     }
   }
 
@@ -389,16 +796,32 @@ export function createTabletopManager(config = {}) {
     }
     setupGameId = gameId;
     const count = game.players.fixed || game.players.min;
-    setupNames = defaultPlayerNames(count);
+    const friends = getFriends();
+    const last = (friends.lastGroupIds || [])
+      .map((id) => friends.players.find((p) => p.id === id))
+      .filter(Boolean);
+    if (last.length >= game.players.min) {
+      const used = last.slice(0, count);
+      setupNames = used.map((p) => p.name);
+      setupProfileIds = used.map((p) => p.id);
+      while (setupNames.length < count) {
+        setupNames.push(`Spieler ${setupNames.length + 1}`);
+        setupProfileIds.push(null);
+      }
+    } else {
+      setupNames = defaultPlayerNames(count);
+      setupProfileIds = Array.from({ length: count }, () => null);
+    }
     view = "setup";
     message = "";
     render();
   }
 
-  function createSession(game, names) {
+  function createSession(game, names, profileIds = []) {
     const players = names.map((name, index) => ({
       id: `p${index}`,
       name,
+      profileId: profileIds[index] || null,
       total: 0,
       phase: game.scoreMode === "phase10" ? 1 : null,
     }));
@@ -410,6 +833,21 @@ export function createTabletopManager(config = {}) {
       players,
       rounds: [],
     };
+  }
+
+  function linkSessionToProfiles(session) {
+    const friends = getFriends();
+    const byName = new Map(friends.players.map((p) => [nameKey(p.name), p]));
+    for (const player of session.players) {
+      if (player.profileId && friends.players.some((p) => p.id === player.profileId)) {
+        continue;
+      }
+      const match = byName.get(nameKey(player.name));
+      if (match) {
+        player.profileId = match.id;
+        player.name = match.name;
+      }
+    }
   }
 
   function recomputeSession(session) {
@@ -504,6 +942,14 @@ export function createTabletopManager(config = {}) {
       body.innerHTML = renderHistory();
     } else if (view === "history-detail") {
       body.innerHTML = renderHistoryDetail();
+    } else if (view === "players") {
+      body.innerHTML = renderPlayers();
+    } else if (view === "rankings") {
+      body.innerHTML = renderRankings();
+    } else if (view === "promote") {
+      body.innerHTML = renderPromote();
+    } else if (view === "join") {
+      body.innerHTML = renderJoin();
     }
 
     body.scrollTop = 0;
@@ -534,6 +980,11 @@ export function createTabletopManager(config = {}) {
         <button type="button" class="tt-secondary" data-tt-action="history">Vergangene</button>
       </div>
       <p class="tt-lead">Wähle ein Spiel, lies die Regeln oder starte eine Partie zum Mitzählen.</p>
+      <div class="tt-toolbar-links">
+        <button type="button" class="tt-secondary" data-tt-action="players">Spieler</button>
+        <button type="button" class="tt-secondary" data-tt-action="rankings">Rangliste</button>
+        <button type="button" class="tt-secondary" data-tt-action="join">Mit Code</button>
+      </div>
       <div class="tt-game-grid">${cards}</div>`;
   }
 
@@ -571,7 +1022,10 @@ export function createTabletopManager(config = {}) {
     const fixed = Boolean(game.players.fixed);
     const count = fixed ? game.players.fixed : setupNames.length || game.players.min;
     if (setupNames.length !== count) {
-      setupNames = defaultPlayerNames(count);
+      const previous = [...setupNames];
+      const prevIds = [...setupProfileIds];
+      setupNames = defaultPlayerNames(count).map((fallback, i) => previous[i] || fallback);
+      setupProfileIds = Array.from({ length: count }, (_, i) => prevIds[i] || null);
     }
     const nameFields = setupNames
       .map(
@@ -593,16 +1047,34 @@ export function createTabletopManager(config = {}) {
           max: game.players.max,
         })}`;
 
+    const friends = getFriends();
+    const rosterChips =
+      friends.players.length > 0
+        ? `<div class="tt-roster-block">
+            <p class="tt-meta">Feste Spieler antippen:</p>
+            <div class="tt-chip-row tt-roster-chips">${friends.players
+              .map((p) => {
+                const selected = setupProfileIds.includes(p.id);
+                return `<button type="button" class="tt-chip tt-secondary${selected ? " is-active" : ""}" data-tt-action="use-player" data-tt-player="${escapeAttr(p.id)}">${escapeHtml(p.name)}</button>`;
+              })
+              .join("")}</div>
+          </div>`
+        : `<p class="tt-hint">Tipp: Nach einer Partie kannst du Namen als feste Spieler speichern.</p>`;
+
     return `
       <div class="tt-toolbar">
         <button type="button" class="tt-secondary" data-tt-action="picker">Zurück</button>
         <h2>${escapeHtml(game.name)} — Setup</h2>
         <button type="button" class="tt-secondary" data-tt-action="rules" data-tt-game="${game.id}">Regeln</button>
       </div>
+      ${rosterChips}
       <form class="tt-form" data-tt-form="setup">
         ${countField}
         <div class="tt-name-grid" data-tt-names>${nameFields}</div>
-        <button type="submit">Partie starten</button>
+        <div class="tt-card-actions">
+          <button type="button" class="tt-secondary" data-tt-action="remember-setup">Für später merken</button>
+          <button type="submit">Partie starten</button>
+        </div>
       </form>`;
   }
 
@@ -652,6 +1124,8 @@ export function createTabletopManager(config = {}) {
   }
 
   function renderRoundForm(game, session) {
+    const draft = session.draftRound || null;
+
     if (game.scoreMode === "wizard") {
       const maxR = wizardMaxRounds(session.players.length);
       if (session.rounds.length >= maxR) {
@@ -666,14 +1140,14 @@ export function createTabletopManager(config = {}) {
             ${renderBoundedNumber({
               label: "Ansage",
               name: `bid-${index}`,
-              value: 0,
+              value: draftFieldValue(draft, `bid-${index}`, 0),
               min: 0,
               max: maxTricks,
             })}
             ${renderBoundedNumber({
               label: "Stiche",
               name: `tricks-${index}`,
-              value: 0,
+              value: draftFieldValue(draft, `tricks-${index}`, 0),
               min: 0,
               max: maxTricks,
             })}
@@ -696,13 +1170,13 @@ export function createTabletopManager(config = {}) {
             ${renderStepper({
               label: "Strafpunkte",
               name: `score-${index}`,
-              value: 0,
+              value: draftFieldValue(draft, `score-${index}`, 0),
               min: 0,
               max: 500,
               step: 1,
               bigStep: 5,
             })}
-            <label class="tt-check"><input name="phase-${index}" type="checkbox" /> Phase geschafft</label>
+            <label class="tt-check"><input name="phase-${index}" type="checkbox"${draftCheckValue(draft, `phase-${index}`) ? " checked" : ""} /> Phase geschafft</label>
           </fieldset>`,
         )
         .join("");
@@ -718,16 +1192,143 @@ export function createTabletopManager(config = {}) {
           ${renderStepper({
             label: null,
             name: `score-${index}`,
-            value: 0,
+            value: draftFieldValue(draft, `score-${index}`, 0),
             min: allowNegative ? -999 : 0,
             max: 999,
-            step: game.id === "qwixx" ? 1 : 1,
+            step: 1,
             bigStep: allowNegative || game.id === "skyjo" ? 5 : null,
           })}
         </div>`,
       )
       .join("");
     return `<form class="tt-form" data-tt-form="round"><h3>Runde ${session.rounds.length + 1} — Punkte</h3><div class="tt-round-grid">${fields}</div><button type="submit">Runde speichern</button></form>`;
+  }
+
+  function renderPlayers() {
+    const friends = getFriends();
+    const code = friends.joinCode;
+    const list =
+      friends.players.length === 0
+        ? `<p class="tt-lead">Noch keine festen Spieler. Speichere Namen nach einer Partie oder tippe im Setup auf „Für später merken“.</p>`
+        : `<ul class="tt-player-list">${friends.players
+            .map(
+              (p) => `
+            <li>
+              <span>${escapeHtml(p.name)}</span>
+              <button type="button" class="tt-danger tt-small" data-tt-action="remove-player" data-tt-player="${escapeAttr(p.id)}">Entfernen</button>
+            </li>`,
+            )
+            .join("")}</ul>`;
+
+    const codeBlock = isAuthenticated()
+      ? code
+        ? `<div class="tt-code-block">
+            <p class="tt-meta">Freundes-Code (andere können sich selbst hinzufügen):</p>
+            <p class="tt-join-code">${escapeHtml(formatJoinCode(code))}</p>
+            <button type="button" class="tt-secondary" data-tt-action="copy-code">Code kopieren</button>
+          </div>`
+        : `<p class="tt-hint">Code wird geladen…</p>`
+      : `<p class="tt-hint">Melde dich an, um Spieler weltweit zu synchronisieren und einen Freundes-Code zu erhalten.</p>`;
+
+    return `
+      <div class="tt-toolbar">
+        <button type="button" class="tt-secondary" data-tt-action="picker">Zurück</button>
+        <h2>Feste Spieler</h2>
+        <button type="button" class="tt-secondary" data-tt-action="join">Mit Code</button>
+      </div>
+      ${codeBlock}
+      ${list}`;
+  }
+
+  function renderRankings() {
+    const friends = getFriends();
+    const filterButtons = [
+      `<button type="button" class="tt-chip tt-secondary${!rankingsGameFilter ? " is-active" : ""}" data-tt-action="set-rank-filter" data-tt-game="">Gesamt</button>`,
+      ...TABLETOP_GAMES.map(
+        (g) =>
+          `<button type="button" class="tt-chip tt-secondary${rankingsGameFilter === g.id ? " is-active" : ""}" data-tt-action="set-rank-filter" data-tt-game="${g.id}">${escapeHtml(g.name)}</button>`,
+      ),
+    ].join("");
+
+    const rows = buildRankings(
+      friends.players,
+      friends.localStats,
+      rankingsGameFilter || null,
+    );
+    const table =
+      rows.length === 0
+        ? `<p class="tt-lead">Noch keine Ranglisten-Daten. Beende Partien mit gemerkten Spielern.</p>`
+        : `<div class="tt-table-wrap"><table class="tt-score-table tt-rank-table">
+            <thead><tr><th>#</th><th>Spieler</th><th>Siege</th><th>Partien</th><th>Ø Punkte</th></tr></thead>
+            <tbody>${rows
+              .map(
+                (row, i) =>
+                  `<tr><td>${i + 1}</td><td>${escapeHtml(row.name)}</td><td>${row.wins}</td><td>${row.games}</td><td>${formatAvg(row.avgPoints)}</td></tr>`,
+              )
+              .join("")}</tbody>
+          </table></div>`;
+
+    return `
+      <div class="tt-toolbar">
+        <button type="button" class="tt-secondary" data-tt-action="picker">Zurück</button>
+        <h2>Rangliste</h2>
+      </div>
+      <p class="tt-lead">Siege und Punkte unter euren festen Spielern — alle Tischspiele.</p>
+      <div class="tt-chip-row tt-rank-filters">${filterButtons}</div>
+      ${table}`;
+  }
+
+  function renderPromote() {
+    const session = pendingPromoteSession || viewedSession;
+    if (!session) {
+      return `<p>Keine Partie.</p><button type="button" data-tt-action="picker">Zurück</button>`;
+    }
+    const friends = getFriends();
+    const checks = session.players
+      .map((player, index) => {
+        const already = friends.players.some(
+          (fp) => nameKey(fp.name) === nameKey(player.name),
+        );
+        return `
+          <label class="tt-check tt-promote-row">
+            <input name="promote-${index}" type="checkbox"${already ? "" : " checked"} ${already ? "disabled" : ""} />
+            <span>${escapeHtml(player.name)}${already ? " <small>(schon gespeichert)</small>" : ""}</span>
+          </label>`;
+      })
+      .join("");
+
+    return `
+      <div class="tt-toolbar">
+        <h2>Als feste Spieler speichern</h2>
+      </div>
+      <p class="tt-lead">Diese Namen beim nächsten Spiel wiederverwenden und für die Rangliste zählen.</p>
+      <form class="tt-form" data-tt-form="promote">
+        <div class="tt-promote-list">${checks}</div>
+        <div class="tt-card-actions">
+          <button type="button" class="tt-secondary" data-tt-action="skip-promote">Überspringen</button>
+          <button type="submit">Speichern</button>
+        </div>
+      </form>`;
+  }
+
+  function renderJoin() {
+    return `
+      <div class="tt-toolbar">
+        <button type="button" class="tt-secondary" data-tt-action="picker">Zurück</button>
+        <h2>Mit Code beitreten</h2>
+      </div>
+      <p class="tt-lead">Freundes-Code eingeben und deinen Namen hinzufügen.</p>
+      <form class="tt-form" data-tt-form="join">
+        <label class="tt-field">
+          <span>Freundes-Code</span>
+          <input name="join-code" type="text" maxlength="12" placeholder="NEO-AB12" required autocomplete="off" />
+        </label>
+        <label class="tt-field">
+          <span>Dein Name</span>
+          <input name="join-name" type="text" maxlength="24" required />
+        </label>
+        <button type="submit">Beitreten</button>
+      </form>`;
   }
 
   function renderBoundedNumber({ label, name, value = 0, min = 0, max = 0 }) {
@@ -961,7 +1562,8 @@ export function createTabletopManager(config = {}) {
 
     let actions = `
       <div class="tt-session-actions">
-        <button type="button" class="tt-secondary" data-tt-action="history">Zur Liste</button>`;
+        <button type="button" class="tt-secondary" data-tt-action="history">Zur Liste</button>
+        <button type="button" class="tt-secondary" data-tt-action="rankings">Rangliste</button>`;
     if (isActiveView) {
       actions += `<button type="button" data-tt-action="resume-active">Weiterzählen</button>`;
     } else if (viewedHistoryIndex != null) {
@@ -998,12 +1600,7 @@ export function createTabletopManager(config = {}) {
     return sorted[0] || null;
   }
 
-  // Keep player name fields in sync when count changes on setup form
-  rootEl?.addEventListener("input", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLInputElement) || target.name !== "player-count") {
-      return;
-    }
+  function handlePlayerCountInput(target) {
     const game = getTabletopGame(setupGameId);
     if (!game || view !== "setup") {
       return;
@@ -1014,7 +1611,9 @@ export function createTabletopManager(config = {}) {
       target.value = String(count);
     }
     const previous = [...setupNames];
+    const prevIds = [...setupProfileIds];
     setupNames = defaultPlayerNames(count).map((fallback, i) => previous[i] || fallback);
+    setupProfileIds = Array.from({ length: count }, (_, i) => prevIds[i] || null);
     const namesHost = rootEl.querySelector("[data-tt-names]");
     if (namesHost) {
       namesHost.innerHTML = setupNames
@@ -1027,7 +1626,7 @@ export function createTabletopManager(config = {}) {
         )
         .join("");
     }
-  });
+  }
 
   return { init, open, close };
 }
@@ -1060,4 +1659,19 @@ function formatDate(iso) {
   } catch {
     return iso;
   }
+}
+
+function formatJoinCode(code) {
+  const clean = String(code || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (clean.length === 7 && clean.startsWith("NEO")) {
+    return `${clean.slice(0, 3)}-${clean.slice(3)}`;
+  }
+  return clean;
+}
+
+function formatAvg(value) {
+  if (!Number.isFinite(value)) {
+    return "—";
+  }
+  return (Math.round(value * 10) / 10).toLocaleString("de-DE");
 }

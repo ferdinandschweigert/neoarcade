@@ -2187,6 +2187,85 @@ body.tabletop-open {
   min-height: 0;
 }
 
+.tt-toolbar-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0 0 0.85rem;
+}
+
+.tt-roster-block {
+  margin: 0 0 0.85rem;
+}
+
+.tt-roster-chips {
+  margin-top: 0.35rem;
+}
+
+.tt-player-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.tt-player-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem 0.65rem;
+  border: 2px solid var(--lcd-dark);
+  border-radius: 0.45rem;
+  background: #ffffff;
+  font-weight: 800;
+}
+
+.tt-code-block {
+  margin: 0 0 0.85rem;
+  padding: 0.75rem;
+  border: 2px dashed var(--lcd-dark);
+  border-radius: 0.55rem;
+  background: #ffffff;
+}
+
+.tt-join-code {
+  margin: 0.35rem 0 0.55rem;
+  font-size: 1.25rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.tabletop-card button.tt-small {
+  padding: 0.35rem 0.55rem;
+  font-size: 0.65rem;
+  min-height: 0;
+}
+
+.tt-promote-list {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0 0 0.85rem;
+}
+
+.tt-promote-row {
+  padding: 0.45rem 0.55rem;
+  border: 2px solid var(--lcd-dark);
+  border-radius: 0.45rem;
+  background: #ffffff;
+}
+
+.tt-rank-filters {
+  margin: 0 0 0.85rem;
+}
+
+.tt-rank-table th:nth-child(1),
+.tt-rank-table td:nth-child(1) {
+  width: 2rem;
+}
+
+
 .tt-totals {
   list-style: none;
   display: grid;

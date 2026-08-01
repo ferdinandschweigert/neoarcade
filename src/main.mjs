@@ -147,6 +147,7 @@ wireDeferredOverlay({
     rootEl: document.querySelector("#tabletop-overlay"),
     openButtonEl,
     closeButtonEl: document.querySelector("#tabletop-close-button"),
+    isAuthenticated: () => authManager.isAuthenticated(),
   }),
 });
 
