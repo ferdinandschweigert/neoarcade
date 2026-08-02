@@ -2211,6 +2211,27 @@ body.tabletop-open {
   box-shadow: 0 3px 0 var(--burgundy-dark) !important;
 }
 
+.tt-filter-chip,
+.tt-name-chip {
+  width: auto !important;
+  min-width: 0 !important;
+  min-height: 2.35rem !important;
+  padding: 0.4rem 0.7rem !important;
+  border-radius: 0.55rem !important;
+  font-size: 0.68rem !important;
+  line-height: 1.15;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.tt-filter-chip.is-active,
+.tt-name-chip.is-active {
+  background: var(--burgundy) !important;
+  border-color: var(--burgundy-dark) !important;
+  color: #fff0d1 !important;
+  box-shadow: 0 3px 0 var(--burgundy-dark) !important;
+}
+
 .tt-save-round {
   position: sticky;
   bottom: 0;
@@ -2378,6 +2399,39 @@ body.tabletop-open {
 
 .tt-rank-filters {
   margin: 0 0 0.85rem;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  padding-bottom: 0.2rem;
+}
+
+.tt-roster-chips {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  padding-bottom: 0.15rem;
+}
+
+.tt-promote-note {
+  margin: 0 0 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border: 2px dashed var(--lcd-dark);
+  border-radius: 0.45rem;
+  background: #ffffff;
+  color: var(--lcd-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.tt-cloud-note {
+  margin: 0 0 0.75rem;
+  color: var(--lcd-muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .tt-rank-table th:nth-child(1),

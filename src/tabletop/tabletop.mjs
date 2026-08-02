@@ -482,17 +482,8 @@ export function createTabletopManager(config = {}) {
       pendingPromoteSession = finished;
       viewedSession = structuredClone(finished);
       viewedHistoryIndex = 0;
-      const friends = getFriends();
-      const newNames = finished.players.filter(
-        (p) => !friends.players.some((fp) => nameKey(fp.name) === nameKey(p.name)),
-      );
-      if (newNames.length > 0) {
-        view = "promote";
-        message = "Partie gespeichert — Spieler für später merken?";
-      } else {
-        void finalizePromote(true);
-        return;
-      }
+      view = "promote";
+      message = "Partie gespeichert — Spieler fest speichern oder lokal lassen?";
       render();
       return;
     }
@@ -698,18 +689,21 @@ export function createTabletopManager(config = {}) {
       namesToSave = session.players
         .map((player, index) => {
           const box = form.querySelector(`[name="promote-${index}"]`);
-          return box instanceof HTMLInputElement && box.checked ? player.name : null;
+          if (!(box instanceof HTMLInputElement)) {
+            return null;
+          }
+          // Already-permanent players stay checked/disabled — still count for rankings.
+          if (box.disabled || box.checked) {
+            return player.name;
+          }
+          return null;
         })
         .filter(Boolean);
     } else if (saveSelected) {
-      namesToSave = session.players
-        .filter(
-          (p) => !friends.players.some((fp) => nameKey(fp.name) === nameKey(p.name)),
-        )
-        .map((p) => p.name);
+      namesToSave = session.players.map((p) => p.name);
     }
 
-    if (namesToSave.length) {
+    if (saveSelected && namesToSave.length) {
       const result = promotePlayers(friends.players, namesToSave);
       friends.players = result.players;
       persistFriends();
@@ -722,36 +716,36 @@ export function createTabletopManager(config = {}) {
           // local keep
         }
       }
-    }
 
-    linkSessionToProfiles(session);
-    friends.lastGroupIds = session.players.map((p) => p.profileId).filter(Boolean);
-    const game = getTabletopGame(session.gameId);
-    friends.localStats = applySessionToStats(friends.localStats, session, game);
-    persistFriends();
+      linkSessionToProfiles(session);
+      friends.lastGroupIds = session.players.map((p) => p.profileId).filter(Boolean);
+      const game = getTabletopGame(session.gameId);
+      friends.localStats = applySessionToStats(friends.localStats, session, game);
+      persistFriends();
 
-    // Keep local history in sync with linked profile ids.
-    const store = loadStore();
-    if (store.history?.[0]?.id === session.id) {
-      store.history[0] = {
-        ...store.history[0],
-        players: session.players.map((p) => ({ ...p })),
-      };
-      saveStore(store);
-    }
+      // Keep local history in sync with linked profile ids.
+      const store = loadStore();
+      if (store.history?.[0]?.id === session.id) {
+        store.history[0] = {
+          ...store.history[0],
+          players: session.players.map((p) => ({ ...p })),
+        };
+        saveStore(store);
+      }
 
-    if (isAuthenticated() && session.players.some((p) => p.profileId)) {
-      try {
-        const payload = await apiSubmitSession(session);
-        if (payload?.stats) {
-          friends.localStats = payload.stats;
-          if (payload.players) {
-            friends.players = payload.players;
+      if (isAuthenticated() && session.players.some((p) => p.profileId)) {
+        try {
+          const payload = await apiSubmitSession(session);
+          if (payload?.stats) {
+            friends.localStats = payload.stats;
+            if (payload.players) {
+              friends.players = payload.players;
+            }
+            persistFriends();
           }
-          persistFriends();
+        } catch {
+          // rankings stay local
         }
-      } catch {
-        // rankings stay local
       }
     }
 
@@ -759,9 +753,14 @@ export function createTabletopManager(config = {}) {
     viewedSession = structuredClone(session);
     viewedHistoryIndex = 0;
     view = "history-detail";
-    message = namesToSave.length
-      ? "Partie und Spieler gespeichert."
-      : "Partie gespeichert.";
+    if (!saveSelected) {
+      message = "Partie nur lokal gespeichert — Spieler nicht zur Rangliste hinzugefügt.";
+    } else if (isAuthenticated()) {
+      message = "Spieler gespeichert und online synchronisiert.";
+    } else {
+      message =
+        "Spieler auf diesem Gerät gemerkt. Zum weltweiten Sync bitte anmelden.";
+    }
     render();
   }
 
@@ -1055,7 +1054,7 @@ export function createTabletopManager(config = {}) {
             <div class="tt-chip-row tt-roster-chips">${friends.players
               .map((p) => {
                 const selected = setupProfileIds.includes(p.id);
-                return `<button type="button" class="tt-chip tt-secondary${selected ? " is-active" : ""}" data-tt-action="use-player" data-tt-player="${escapeAttr(p.id)}">${escapeHtml(p.name)}</button>`;
+                return `<button type="button" class="tt-name-chip tt-secondary${selected ? " is-active" : ""}" data-tt-action="use-player" data-tt-player="${escapeAttr(p.id)}">${escapeHtml(p.name)}</button>`;
               })
               .join("")}</div>
           </div>`
@@ -1226,9 +1225,10 @@ export function createTabletopManager(config = {}) {
             <p class="tt-meta">Freundes-Code (andere können sich selbst hinzufügen):</p>
             <p class="tt-join-code">${escapeHtml(formatJoinCode(code))}</p>
             <button type="button" class="tt-secondary" data-tt-action="copy-code">Code kopieren</button>
+            <p class="tt-cloud-note">Online in der Cloud — von jedem Gerät verfügbar, wenn du angemeldet bist.</p>
           </div>`
         : `<p class="tt-hint">Code wird geladen…</p>`
-      : `<p class="tt-hint">Melde dich an, um Spieler weltweit zu synchronisieren und einen Freundes-Code zu erhalten.</p>`;
+      : `<p class="tt-hint">Gast: Spieler bleiben auf diesem Gerät. Melde dich an, damit feste Spieler und Ranglisten weltweit synchronisiert werden.</p>`;
 
     return `
       <div class="tt-toolbar">
@@ -1243,10 +1243,10 @@ export function createTabletopManager(config = {}) {
   function renderRankings() {
     const friends = getFriends();
     const filterButtons = [
-      `<button type="button" class="tt-chip tt-secondary${!rankingsGameFilter ? " is-active" : ""}" data-tt-action="set-rank-filter" data-tt-game="">Gesamt</button>`,
+      `<button type="button" class="tt-filter-chip tt-secondary${!rankingsGameFilter ? " is-active" : ""}" data-tt-action="set-rank-filter" data-tt-game="">Gesamt</button>`,
       ...TABLETOP_GAMES.map(
         (g) =>
-          `<button type="button" class="tt-chip tt-secondary${rankingsGameFilter === g.id ? " is-active" : ""}" data-tt-action="set-rank-filter" data-tt-game="${g.id}">${escapeHtml(g.name)}</button>`,
+          `<button type="button" class="tt-filter-chip tt-secondary${rankingsGameFilter === g.id ? " is-active" : ""}" data-tt-action="set-rank-filter" data-tt-game="${g.id}">${escapeHtml(g.name)}</button>`,
       ),
     ].join("");
 
@@ -1257,7 +1257,7 @@ export function createTabletopManager(config = {}) {
     );
     const table =
       rows.length === 0
-        ? `<p class="tt-lead">Noch keine Ranglisten-Daten. Beende Partien mit gemerkten Spielern.</p>`
+        ? `<p class="tt-lead">Noch keine Ranglisten-Daten. Beende eine Partie und wähle „Feste Spieler speichern“.</p>`
         : `<div class="tt-table-wrap"><table class="tt-score-table tt-rank-table">
             <thead><tr><th>#</th><th>Spieler</th><th>Siege</th><th>Partien</th><th>Ø Punkte</th></tr></thead>
             <tbody>${rows
@@ -1268,12 +1268,17 @@ export function createTabletopManager(config = {}) {
               .join("")}</tbody>
           </table></div>`;
 
+    const syncNote = isAuthenticated()
+      ? `<p class="tt-cloud-note">Online-Rangliste deines Freundeskreises — überall verfügbar.</p>`
+      : `<p class="tt-cloud-note">Gerade nur lokal auf diesem Gerät. Mit Sign-in wird die Rangliste online synchronisiert.</p>`;
+
     return `
       <div class="tt-toolbar">
         <button type="button" class="tt-secondary" data-tt-action="picker">Zurück</button>
         <h2>Rangliste</h2>
       </div>
       <p class="tt-lead">Siege und Punkte unter euren festen Spielern — alle Tischspiele.</p>
+      ${syncNote}
       <div class="tt-chip-row tt-rank-filters">${filterButtons}</div>
       ${table}`;
   }
@@ -1291,22 +1296,27 @@ export function createTabletopManager(config = {}) {
         );
         return `
           <label class="tt-check tt-promote-row">
-            <input name="promote-${index}" type="checkbox"${already ? "" : " checked"} ${already ? "disabled" : ""} />
-            <span>${escapeHtml(player.name)}${already ? " <small>(schon gespeichert)</small>" : ""}</span>
+            <input name="promote-${index}" type="checkbox"${already ? " checked disabled" : " checked"} />
+            <span>${escapeHtml(player.name)}${already ? " <small>(schon fest)</small>" : ""}</span>
           </label>`;
       })
       .join("");
 
+    const syncHint = isAuthenticated()
+      ? "Angemeldet: feste Spieler und Rangliste werden online gespeichert und sind von überall erreichbar."
+      : "Gast-Modus: Speichern gilt nur auf diesem Gerät. Für weltweiten Sync bitte vorher anmelden.";
+
     return `
       <div class="tt-toolbar">
-        <h2>Als feste Spieler speichern</h2>
+        <h2>Spieler speichern?</h2>
       </div>
-      <p class="tt-lead">Diese Namen beim nächsten Spiel wiederverwenden und für die Rangliste zählen.</p>
+      <p class="tt-lead">Sollen diese Leute feste Spieler werden (Rangliste + nächstes Spiel), oder nur lokal in der Partie bleiben?</p>
+      <p class="tt-promote-note">${escapeHtml(syncHint)}</p>
       <form class="tt-form" data-tt-form="promote">
         <div class="tt-promote-list">${checks}</div>
         <div class="tt-card-actions">
-          <button type="button" class="tt-secondary" data-tt-action="skip-promote">Überspringen</button>
-          <button type="submit">Speichern</button>
+          <button type="button" class="tt-secondary" data-tt-action="skip-promote">Nur lokal lassen</button>
+          <button type="submit">Feste Spieler speichern</button>
         </div>
       </form>`;
   }
