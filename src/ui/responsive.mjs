@@ -86,7 +86,10 @@ export function createResponsiveLayout({
 
   function applyShellScale() {
     const playingGame = root.dataset.panel === "game";
-    if (!shell || playingGame) {
+    // On phones/tablets, keep UI at native size and scroll the menu
+    // instead of shrinking the whole shell to fit every game card.
+    const narrowViewport = window.innerWidth <= 860;
+    if (!shell || playingGame || narrowViewport) {
       root.style.setProperty("--shell-scale", "1");
       return 1;
     }

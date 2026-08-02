@@ -459,6 +459,10 @@ body:not([data-panel="game"]) .app::after {
   background: #ffe27b;
 }
 
+.random-label-short {
+  display: none;
+}
+
 .game-list {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1190,7 +1194,7 @@ body.is-touch .touch-controls:not(.is-empty) {
   }
 
   .game-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 
   .stats-summary,
@@ -1204,6 +1208,12 @@ body.is-touch .touch-controls:not(.is-empty) {
     padding: 6px;
   }
 
+  body.theme-cursor:not([data-panel="game"]) {
+    display: block;
+    place-items: initial;
+    padding: 0;
+  }
+
   .app-shell {
     width: calc(100vw - 12px);
     min-height: 0;
@@ -1215,8 +1225,25 @@ body.is-touch .touch-controls:not(.is-empty) {
     border-radius: 1.8rem 1.8rem 2.8rem 1.8rem;
   }
 
+  body:not([data-panel="game"]) .app-shell {
+    width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    border-width: 0;
+    box-shadow: none;
+    padding:
+      max(0.7rem, var(--safe-top))
+      max(0.7rem, var(--safe-right))
+      max(0.7rem, var(--safe-bottom))
+      max(0.7rem, var(--safe-left));
+  }
+
   .app-header {
-    align-items: flex-start;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.45rem;
+    flex-shrink: 0;
   }
 
   .app-brand h1 {
@@ -1232,8 +1259,45 @@ body.is-touch .touch-controls:not(.is-empty) {
     right: 2.1rem;
   }
 
+  body:not([data-panel="game"]) .app-shell::before,
+  body:not([data-panel="game"]) .app-shell::after {
+    display: none;
+  }
+
   .app {
     margin-bottom: 0.55rem;
+  }
+
+  body:not([data-panel="game"]) .app {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 0.55rem;
+    padding: 0.55rem;
+    box-shadow:
+      inset 5px 0 0 var(--cyan),
+      inset -5px 0 0 var(--burgundy),
+      inset 0 0 0 3px var(--navy-soft),
+      0 4px 0 var(--navy-dark);
+  }
+
+  body:not([data-panel="game"]) #play-view {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding: 0.75rem;
+  }
+
+  body:not([data-panel="game"]) .app-tabs {
+    flex-shrink: 0;
+  }
+
+  .game-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
   }
 
   body:not([data-panel="game"]) .app::before,
@@ -1250,33 +1314,48 @@ body.is-touch .touch-controls:not(.is-empty) {
 
   .share-button,
   .tabletop-button {
-    width: 2.2rem;
-    height: 2.2rem;
+    width: 2.45rem;
+    height: 2.45rem;
   }
 
   .app-header {
-    gap: 0.55rem;
+    gap: 0.4rem;
   }
 
   .app-brand {
-    gap: 0.5rem;
+    gap: 0.45rem;
+    min-width: 0;
   }
 
   .app-brand h1 {
-    max-width: 11rem;
-    font-size: 0.82rem;
+    display: none;
   }
 
   .app-brand .kicker {
-    font-size: 0.55rem;
+    font-size: 0.78rem;
+    letter-spacing: 0.12em;
+  }
+
+  .brand-mark {
+    width: 2.1rem;
+    height: 2.1rem;
+    padding: 0.28rem;
   }
 
   .app-user {
-    gap: 0.25rem;
+    gap: 0.3rem;
+    flex-shrink: 0;
   }
 
   .user-label {
     display: none;
+  }
+
+  .signin-button,
+  .signout-button {
+    min-height: 2.45rem;
+    padding: 0.4rem 0.55rem;
+    font-size: 0.62rem;
   }
 
   .app-tabs {
@@ -1292,47 +1371,88 @@ body.is-touch .touch-controls:not(.is-empty) {
   }
 
   .app-tabs .app-tab {
-    min-height: 2.45rem;
+    min-height: 2.55rem;
     border-radius: 0.7rem;
-    font-size: 0.55rem;
+    font-size: 0.6rem;
   }
 
   .app {
-    padding: 0.75rem;
+    padding: 0.55rem;
     border-width: 3px;
     border-radius: 1.15rem 1.15rem 1.7rem 1.15rem;
   }
 
   .view-panel,
   #game-screen {
-    padding: 0.95rem;
+    padding: 0.75rem;
     border-width: 3px;
   }
 
+  body:not([data-panel="game"]) #play-view {
+    padding: 0.65rem;
+  }
+
+  .play-quickbar {
+    gap: 0.4rem;
+    margin-bottom: 0.65rem;
+  }
+
+  .play-quickbar .random-button {
+    min-height: 2.35rem;
+    padding: 0.4rem 0.55rem;
+    font-size: 0.58rem;
+  }
+
+  .random-label-full {
+    display: none;
+  }
+
+  .random-label-short {
+    display: inline;
+  }
+
+  .recent-label {
+    font-size: 0.58rem;
+  }
+
+  .recent-chip {
+    min-height: 2rem;
+    font-size: 0.58rem;
+  }
+
   .game-list {
-    gap: 0.55rem;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
   }
 
   .game-card {
-    min-height: 5.2rem;
-    padding: 0.6rem 0.5rem 0.6rem 3rem;
+    min-height: 3.85rem;
+    padding: 0.55rem 0.7rem 0.55rem 3.35rem;
+    gap: 0.12rem;
   }
 
   .game-card-head {
-    left: 0.45rem;
+    left: 0.55rem;
   }
 
   .game-icon {
-    width: 2rem;
-    height: 2rem;
+    width: 2.25rem;
+    height: 2.25rem;
   }
 
   .game-card-title {
-    font-size: 0.69rem;
+    font-size: 0.88rem;
+    letter-spacing: -0.015em;
   }
 
   .game-card-subtitle {
-    font-size: 0.55rem;
+    font-size: 0.68rem;
+    line-height: 1.3;
+  }
+
+  .game-card-best {
+    margin-top: 0.15rem;
+    font-size: 0.62rem;
   }
 
   body[data-panel="game"] {
@@ -1398,7 +1518,7 @@ body.is-touch .touch-controls:not(.is-empty) {
   }
 }
 
-@media (max-height: 860px) {
+@media (max-height: 860px) and (min-width: 861px) {
   .app-brand h1 {
     font-size: clamp(0.92rem, 2vw, 1.15rem);
   }
